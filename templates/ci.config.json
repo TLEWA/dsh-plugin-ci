@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "install": "ci",
+  "build": {
+    "command": "npm run build",
+    "artifacts": [
+      "lib"
+    ],
+    "mode": "git-diff"
+  },
+  "typecheck": "npx tsc --noEmit",
+  "test": "npm test",
+  "testGlobs": [
+    "test/**/*.test.mjs"
+  ],
+  "manifest": {
+    "manifestVersion": 1,
+    "requireEnginesNode": true,
+    "allowedInject": [
+      "@deepseek-ai/*"
+    ]
+  },
+  "docs": {
+    "pairs": [
+      ["README.md", "README.en.md"],
+      ["CHANGELOG.md", "CHANGELOG.en.md"]
+    ],
+    "required": [
+      "README.md",
+      "README.en.md",
+      "CHANGELOG.md",
+      "CHANGELOG.en.md",
+      "LICENSE",
+      "AGENTS.md",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      ".github/workflows/ci.yml"
+    ],
+    "published": [
+      "README.md",
+      "README.en.md",
+      "CHANGELOG.md",
+      "CHANGELOG.en.md",
+      "LICENSE"
+    ]
+  },
+  "tarball": {
+    "mustInclude": [
+      "lib/index.js",
+      "cordis.patch.yml"
+    ],
+    "mustExclude": [
+      "src/**",
+      "test/**"
+    ],
+    "maxBytes": 2097152
+  },
+  "release": {
+    "publish": true,
+    "provenance": true,
+    "assetAlias": "{name}-{version}.tgz"
+  },
+  "guards": {
+    "requireHumanApprovedLabel": true
+  },
+  "gate": {
+    "allowUnstamped": false
+  }
+}

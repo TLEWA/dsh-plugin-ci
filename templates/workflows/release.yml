@@ -1,0 +1,58 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          elif [ -f pnpm-lock.yaml ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+          else
+            echo "no lockfile, skipping install"
+          fi
+      - name: Release preflight
+        run: node scripts/ci-gate.mjs --release
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Verify the published artifact
+        run: node scripts/ci-gate.mjs --after-publish
+      - name: Build release notes
+        run: node scripts/release-notes.mjs --out .release-notes.md
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm pack --ignore-scripts
+          cp "$(ls *.tgz | head -n 1)" "${VERSION}.tgz"
+          PREFIX="$(node -p "require('./package.json').name.split('/').pop()")"
+          cp "${VERSION}.tgz" "${PREFIX}-${VERSION}.tgz" || true
+          sha256sum *.tgz > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file .release-notes.md *.tgz SHA256SUMS

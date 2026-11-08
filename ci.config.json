@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "install": "none",
+  "build": null,
+  "typecheck": null,
+  "test": "node --test test/gate.test.mjs",
+  "testGlobs": [
+    "test/**/*.test.mjs"
+  ],
+  "manifest": null,
+  "docs": {
+    "pairs": [
+      ["README.md", "README.en.md"],
+      ["PROCESS.md", "PROCESS.en.md"],
+      ["CHANGELOG.md", "CHANGELOG.en.md"]
+    ],
+    "required": [
+      "README.md",
+      "README.en.md",
+      "PROCESS.md",
+      "PROCESS.en.md",
+      "CHANGELOG.md",
+      "CHANGELOG.en.md",
+      "AGENTS.md",
+      "LICENSE",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      ".github/workflows/ci.yml"
+    ],
+    "published": []
+  },
+  "tarball": null,
+  "release": {
+    "publish": false,
+    "provenance": false,
+    "assetAlias": ""
+  },
+  "guards": {
+    "requireHumanApprovedLabel": true
+  },
+  "gate": {
+    "allowUnstamped": true
+  }
+}
