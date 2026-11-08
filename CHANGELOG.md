@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 canonical 的 `release.yml` 未调用 `reusable-release.yml`，导致 GitHub Release 缺少 `*.tgz` 与 `SHA256SUMS` 资产。
+
 ## [1.0.0] - 2026-11-09
 
 ### 新增

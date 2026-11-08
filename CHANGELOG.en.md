@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed the canonical `release.yml` not calling `reusable-release.yml`, which left GitHub Releases without `*.tgz` or `SHA256SUMS` assets.
+
 ## [1.0.0] - 2026-11-09
 
 ### Added

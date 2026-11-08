@@ -89,14 +89,22 @@ test('external callers pin the canonical reusable workflows at a major tag', () 
   assert.ok(release.includes("tags: ['v*.*.*']"), 'release must trigger on semver tags');
 });
 
-test('the canonical repository calls its own reusable workflow', () => {
+test('the canonical repository calls its own reusable workflows', () => {
   const ci = read('.github/workflows/ci.yml');
   assert.match(ci, /uses: \.\/\.github\/workflows\/reusable-ci\.yml/);
   assert.ok(ci.indexOf(REMOTE) < 0, 'canonical CI must not call itself over the network');
+  const release = read('.github/workflows/release.yml');
+  assert.match(release, /uses: \.\/\.github\/workflows\/reusable-release\.yml/);
+  assert.ok(release.indexOf(REMOTE) < 0, 'canonical release must not call itself over the network');
 });
 
-test('the canonical release workflow does not publish to npm', () => {
+test('the canonical release keeps npm publishing behind release.publish and uploads assets', () => {
   const text = read('.github/workflows/release.yml');
-  assert.ok(text.indexOf('npm publish') < 0);
-  assert.match(text, /scripts\/ci-gate\.mjs --release/);
+  assert.ok(text.indexOf('npm publish') < 0, 'canonical caller must delegate publishing to the reusable workflow');
+  assert.match(text, /contents: write/);
+  assert.match(text, /id-token: write/);
+  const reusable = read('.github/workflows/reusable-release.yml');
+  assert.match(reusable, /steps\.config\.outputs\.publish == 'true'/);
+  assert.match(reusable, /gh release create/);
+  assert.match(reusable, /SHA256SUMS/);
 });
