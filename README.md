@@ -45,6 +45,8 @@ node scripts/ci-gate.mjs --after-publish
 | `schema/` | 配置的 JSON Schema |
 | `rulesets/` | GitHub ruleset 定义 |
 | `docs/gates.md` | 每条检查的完整说明 |
+| `docs/model-playbook.md` | 模型遇到红项时的处理手册 |
+| `docs/release.md` | 发布与失败恢复手册 |
 
 ## 发布流程
 
@@ -57,7 +59,7 @@ git push origin v1.0.0
 
 ## 给模型的工作准则
 
-模型必须遵守 [AGENTS.md](./AGENTS.md)：先读 [PROCESS.md](./PROCESS.md)，只在 `feat/`、`fix/` 等分支提交，把 CI 的红色项当作阻断，不得用跳过或压制绕过。每条检查的动机见 [docs/gates.md](./docs/gates.md)。
+模型必须遵守 [AGENTS.md](./AGENTS.md)：先读 [PROCESS.md](./PROCESS.md)，只在 `feat/`、`fix/` 等分支提交，把 CI 的红色项当作阻断，不得用跳过或压制绕过。每条检查的动机见 [docs/gates.md](./docs/gates.md)，红项处理与发布见 [docs/model-playbook.md](./docs/model-playbook.md)、[docs/release.md](./docs/release.md)。
 
 ## 许可
 

@@ -45,6 +45,8 @@ node scripts/ci-gate.mjs --after-publish
 | `schema/` | JSON Schema for the configuration |
 | `rulesets/` | GitHub ruleset definitions |
 | `docs/gates.md` | Full description of every check |
+| `docs/model-playbook.md` | How a model should react to red checks |
+| `docs/release.md` | Release and recovery handbook |
 
 ## Release flow
 
@@ -57,7 +59,7 @@ git push origin v1.0.0
 
 ## Rules for models
 
-Models must follow [AGENTS.md](./AGENTS.md): read [PROCESS.md](./PROCESS.md) first, commit only on `feat/`, `fix/` and similar branches, treat any red gate line as blocking, and never bypass it with skips or suppressions. The rationale of every check lives in [docs/gates.md](./docs/gates.md).
+Models must follow [AGENTS.md](./AGENTS.md): read [PROCESS.md](./PROCESS.md) first, commit only on `feat/`, `fix/` and similar branches, treat any red gate line as blocking, and never bypass it with skips or suppressions. The rationale of every check lives in [docs/gates.md](./docs/gates.md); reacting to red checks and releasing are covered in [docs/model-playbook.md](./docs/model-playbook.md) and [docs/release.md](./docs/release.md).
 
 ## License
 

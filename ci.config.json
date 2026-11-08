@@ -24,7 +24,10 @@
       "AGENTS.md",
       "LICENSE",
       ".github/PULL_REQUEST_TEMPLATE.md",
-      ".github/workflows/ci.yml"
+      ".github/workflows/ci.yml",
+      "docs/gates.md",
+      "docs/model-playbook.md",
+      "docs/release.md"
     ],
     "published": []
   },
