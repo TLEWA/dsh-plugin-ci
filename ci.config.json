@@ -1,18 +1,32 @@
 {
+  "$schema": "https://raw.githubusercontent.com/TLEWA/dsh-plugin-ci/v1/schema/ci.config.schema.json",
+  "selfHosted": true,
   "version": 1,
-  "install": "none",
   "build": null,
   "typecheck": null,
-  "test": "node --test test/gate.test.mjs",
+  "test": "node --test test/gate.test.mjs test/workflows.test.mjs test/rulesets.test.mjs test/schema.test.mjs test/release-notes.test.mjs",
   "testGlobs": [
     "test/**/*.test.mjs"
   ],
   "manifest": null,
   "docs": {
     "pairs": [
-      ["README.md", "README.en.md"],
-      ["PROCESS.md", "PROCESS.en.md"],
-      ["CHANGELOG.md", "CHANGELOG.en.md"]
+      [
+        "README.md",
+        "README.en.md"
+      ],
+      [
+        "PROCESS.md",
+        "PROCESS.en.md"
+      ],
+      [
+        "CHANGELOG.md",
+        "CHANGELOG.en.md"
+      ],
+      [
+        "docs/architecture.md",
+        "docs/architecture.en.md"
+      ]
     ],
     "required": [
       "README.md",
@@ -27,20 +41,18 @@
       ".github/workflows/ci.yml",
       "docs/gates.md",
       "docs/model-playbook.md",
-      "docs/release.md"
+      "docs/release.md",
+      "docs/architecture.md",
+      "docs/architecture.en.md"
     ],
     "published": []
   },
   "tarball": null,
   "release": {
     "publish": false,
-    "provenance": false,
-    "assetAlias": ""
+    "provenance": false
   },
   "guards": {
     "requireHumanApprovedLabel": true
-  },
-  "gate": {
-    "allowUnstamped": true
   }
 }

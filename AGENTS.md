@@ -4,15 +4,17 @@
 
 ## 必须
 
-- 开工前读 `PROCESS.md` 与 `docs/gates.md`，确认改动类型。
+- 开工前读 `PROCESS.md`、`docs/gates.md` 与 `docs/architecture.md`，确认改动类型与影响范围。
 - 只在允许前缀的分支上工作，一个 PR 只做一件事。
 - 提交前本地运行 `node scripts/ci-gate.mjs`，全绿才 push。
 - 改行为就改测试；改用户可见内容就同步中英文两份文档与 CHANGELOG。
+- 改 gate、schema、ruleset 或 reusable workflow 时，在 PR 里说明影响并附测试。
 - CI 失败时读每行的 `fix:` 提示修根因；修不动就在 PR 里写清尝试过的方案并交给人。
 
 ## 禁止
 
-- 手改 `scripts/ci-gate.mjs`（只能从 canonical 仓库同步）。
+- 把 `ci-gate.mjs` 或 reusable workflow 复制到插件仓（中心仓通过 `@v1` 复用）。
+- 把调用方 pin 从 `@v1` 改成 `@main`，或删除 caller workflow。
 - 新增 `.only`、`.skip`、`@ts-ignore`、`eslint-disable` 等跳过或压制。
 - 自己给 PR 添加 `ci-change` 或 `human-approved` 标签。
 - 在本机执行 `npm publish`，或对 main 强推。
@@ -29,5 +31,5 @@ node scripts/ci-gate.mjs --json
 ## 交付标准
 
 1. verify 全绿，且 PR 模板每一项都已勾选。
-2. 双语文档标题一一对应，代码块命令完全一致。
+2. 双语文档标题数量一一对应，代码块命令完全一致。
 3. CHANGELOG 有本次版本小节，写明改了什么、对使用者有什么影响。

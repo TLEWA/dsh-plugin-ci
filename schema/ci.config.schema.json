@@ -1,43 +1,126 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/TLEWA/dsh-plugin-ci/main/schema/ci.config.schema.json",
+  "$id": "https://raw.githubusercontent.com/TLEWA/dsh-plugin-ci/v1/schema/ci.config.schema.json",
   "title": "dsh-plugin-ci configuration",
-  "description": "Every key is required. Use null for a section the repository does not need. Unknown keys are rejected.",
+  "description": "Required keys are the contract. Use null for a section the repository does not need. Unknown keys are rejected. The gate enforces the same shape in scripts/ci-gate.mjs.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "install", "build", "typecheck", "test", "testGlobs", "manifest", "docs", "tarball", "release", "guards", "gate"],
+  "required": [
+    "version",
+    "build",
+    "typecheck",
+    "test",
+    "testGlobs",
+    "manifest",
+    "docs",
+    "tarball",
+    "release",
+    "guards"
+  ],
   "properties": {
-    "version": { "const": 1 },
-    "install": { "enum": ["ci", "install", "none"], "description": "ci = npm ci (lockfile), install = npm install, none = no dependencies" },
+    "$schema": {
+      "type": "string"
+    },
+    "selfHosted": {
+      "type": "boolean",
+      "description": "true only in the canonical repository, which calls its own reusable workflows"
+    },
+    "version": {
+      "const": 1
+    },
     "build": {
       "oneOf": [
-        { "type": "null" },
+        {
+          "type": "null"
+        },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["command", "artifacts", "mode"],
+          "required": [
+            "command",
+            "artifacts",
+            "mode"
+          ],
           "properties": {
-            "command": { "type": "string", "minLength": 1 },
-            "artifacts": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
-            "mode": { "enum": ["git-diff", "check-flag"] }
+            "command": {
+              "type": "string",
+              "minLength": 1
+            },
+            "artifacts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "mode": {
+              "enum": [
+                "git-diff",
+                "check-flag"
+              ]
+            }
           }
         }
       ]
     },
-    "typecheck": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
-    "test": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
-    "testGlobs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "typecheck": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
+    },
+    "test": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
+    },
+    "testGlobs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "manifest": {
       "oneOf": [
-        { "type": "null" },
+        {
+          "type": "null"
+        },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["manifestVersion", "requireEnginesNode", "allowedInject"],
+          "required": [
+            "manifestVersion",
+            "requireEnginesNode",
+            "allowedInject"
+          ],
           "properties": {
-            "manifestVersion": { "type": "integer", "minimum": 1 },
-            "requireEnginesNode": { "type": "boolean" },
-            "allowedInject": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+            "manifestVersion": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "requireEnginesNode": {
+              "type": "boolean"
+            },
+            "allowedInject": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
         }
       ]
@@ -45,28 +128,73 @@
     "docs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["pairs", "required", "published"],
+      "required": [
+        "pairs",
+        "required",
+        "published"
+      ],
       "properties": {
         "pairs": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "array", "prefixItems": [{ "type": "string" }, { "type": "string" }], "minItems": 2, "maxItems": 2 }
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
         },
-        "required": { "type": "array", "items": { "type": "string" } },
-        "published": { "type": "array", "items": { "type": "string" } }
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "published": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "tarball": {
       "oneOf": [
-        { "type": "null" },
+        {
+          "type": "null"
+        },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mustInclude", "mustExclude", "maxBytes"],
+          "required": [
+            "mustInclude",
+            "mustExclude",
+            "maxBytes"
+          ],
           "properties": {
-            "mustInclude": { "type": "array", "items": { "type": "string" } },
-            "mustExclude": { "type": "array", "items": { "type": "string" } },
-            "maxBytes": { "type": "integer", "minimum": 1 }
+            "mustInclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mustExclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         }
       ]
@@ -74,27 +202,29 @@
     "release": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["publish", "provenance", "assetAlias"],
+      "required": [
+        "publish",
+        "provenance"
+      ],
       "properties": {
-        "publish": { "type": "boolean" },
-        "provenance": { "type": "boolean" },
-        "assetAlias": { "type": "string" }
+        "publish": {
+          "type": "boolean"
+        },
+        "provenance": {
+          "type": "boolean"
+        }
       }
     },
     "guards": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["requireHumanApprovedLabel"],
+      "required": [
+        "requireHumanApprovedLabel"
+      ],
       "properties": {
-        "requireHumanApprovedLabel": { "type": "boolean" }
-      }
-    },
-    "gate": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["allowUnstamped"],
-      "properties": {
-        "allowUnstamped": { "type": "boolean" }
+        "requireHumanApprovedLabel": {
+          "type": "boolean"
+        }
       }
     }
   }

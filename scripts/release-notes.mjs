@@ -8,10 +8,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 function flag(name) {
-  const hit = process.argv.find((a) => a === name || a.indexOf(name + '=') === 0);
-  if (!hit) return null;
-  const eq = hit.indexOf('=');
-  return eq >= 0 ? hit.slice(eq + 1) : '';
+  const eqForm = process.argv.find((a) => a.indexOf(name + '=') === 0);
+  if (eqForm) return eqForm.slice(name.length + 1);
+  const i = process.argv.indexOf(name);
+  if (i < 0) return null;
+  const next = process.argv[i + 1];
+  return next && next.indexOf('--') !== 0 ? next : '';
 }
 function section(file, version) {
   if (!file) return '';

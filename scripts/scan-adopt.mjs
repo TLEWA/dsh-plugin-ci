@@ -2,10 +2,11 @@
 /**
  * scan-adopt.mjs - report how far a plugin repository is from the shared process.
  *
- *   node scripts/scan-adopt.mjs
- *   node scripts/scan-adopt.mjs --json
+ *   node <canonical>/scripts/scan-adopt.mjs
+ *   node <canonical>/scripts/scan-adopt.mjs --json
  *
  * Read-only. Exit code 1 when anything is missing, so CI can use it directly.
+ * Run with cwd = the plugin repository.
  */
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -17,14 +18,18 @@ function readJSON(file) {
 function readText(file) {
   try { return readFileSync(file, 'utf8'); } catch (e) { return ''; }
 }
+function references(text, file) {
+  return new RegExp('^[ \\t]*uses:[ \\t]*TLEWA/dsh-plugin-ci/\\.github/workflows/' + file + '@v\\d+[ \\t]*$', 'm').test(text);
+}
 
 const pkg = readJSON('package.json');
+const config = readJSON('ci.config.json');
 add('package.json', Boolean(pkg), '缺少或不是合法 JSON');
 const patchPath = pkg && pkg.dsh && pkg.dsh.bundle ? String(pkg.dsh.bundle.patch || '').replace(/^\.\//, '') : '';
 const patch = patchPath ? readText(patchPath) : '';
 
 if (pkg) {
-  add('engines.dsh (top level)', Boolean(pkg.engines && pkg.engines.dsh), '插件必须有顶层 engines.dsh');
+  add('engines.dsh (top level)', Boolean(pkg.engines && pkg.engines.dsh), '插件必须有顶层 engines.dsh（dsh.engines.dsh 会被忽略）');
   add('engines.node', Boolean(pkg.engines && pkg.engines.node), '缺少 engines.node');
   add('dsh.manifestVersion', Boolean(pkg.dsh && pkg.dsh.manifestVersion === 1), '应为 1');
   add('dsh.bundle.patch 文件存在', Boolean(patchPath) && existsSync(patchPath), patchPath || '未声明');
@@ -40,12 +45,21 @@ if (pkg) {
 }
 
 add('lockfile', existsSync('package-lock.json') || existsSync('pnpm-lock.yaml'), 'CI 需要可复现安装');
-add('ci.config.json', existsSync('ci.config.json'), '复制 templates/ci.config.json 后按仓库修改');
-add('scripts/ci-gate.mjs', existsSync('scripts/ci-gate.mjs'), 'node scripts/sync-ci.mjs');
-add('scripts/ci-process.json', existsSync('scripts/ci-process.json'), '同步 gate 时自动生成');
-add('.github/workflows/ci.yml', existsSync('.github/workflows/ci.yml'), '复制 templates/workflows/ci.yml');
-add('.github/workflows/release.yml', existsSync('.github/workflows/release.yml'), '复制 templates/workflows/release.yml');
-add('.github/workflows/drift.yml', existsSync('.github/workflows/drift.yml'), '复制 templates/workflows/drift.yml');
+add('ci.config.json', Boolean(config), '用 canonical 的 init-repo.mjs 生成，再按仓库修改');
+if (config) {
+  add('ci.config.json 无旧键 install/gate/assetAlias', !('install' in config) && !('gate' in config) && !(config.release && 'assetAlias' in config.release), '删掉 install、gate 与 release.assetAlias；新版 schema 见 canonical schema/');
+  add('ci.config.json version === 1', config.version === 1, '从 templates/ci.config.json 重新生成');
+}
+const ci = readText('.github/workflows/ci.yml');
+add('ci.yml 调用 reusable-ci', references(ci, 'reusable-ci.yml'), '不要复制 gate 脚本，改用 TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1');
+add('drift.yml 调用 reusable-drift', references(readText('.github/workflows/drift.yml'), 'reusable-drift.yml'), '从 templates/workflows/drift.yml 复制');
+if (config && config.release && config.release.publish) {
+  add('release.yml 调用 reusable-release', references(readText('.github/workflows/release.yml'), 'reusable-release.yml'), '从 templates/workflows/release.yml 复制');
+  const pre = pkg && pkg.scripts && pkg.scripts.prepublishOnly ? String(pkg.scripts.prepublishOnly) : '';
+  add('prepublishOnly 调用 dsh-ci-gate --prepublish', pre.indexOf('dsh-ci-gate') >= 0 && pre.indexOf('--prepublish') >= 0, '用 dsh-ci-init 写入，或手工加 "prepublishOnly": "npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --prepublish"');
+}
+add('无本地 gate 副本', !existsSync('scripts/ci-gate.mjs') && !existsSync('scripts/ci-process.json') && !existsSync('scripts/sync-ci.mjs'), '删掉本地 gate/sync 脚本，reusable workflow 会检出到 .ci/');
+add('.gitignore 含 .ci/', /^\s*\.ci\/?\s*$/m.test(readText('.gitignore')), '加一行 .ci/');
 add('.github/PULL_REQUEST_TEMPLATE.md', existsSync('.github/PULL_REQUEST_TEMPLATE.md'), '复制 templates/PULL_REQUEST_TEMPLATE.md');
 add('AGENTS.md', existsSync('AGENTS.md'), '复制 templates/AGENTS.md');
 add('.gitattributes', /\*\s+text=auto/.test(readText('.gitattributes')), '加 "* text=auto eol=lf"');

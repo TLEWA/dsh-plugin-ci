@@ -1,65 +1,86 @@
 # dsh-plugin-ci
 
-DSH 插件仓库共用的严格 CI / PR 校验器。它把「怎么改、怎么测、怎么发版」写成可执行的检查，模型只能按流程提交，无法靠口头说明绕过。
+DSH 插件仓库共用的严格 CI / PR 策略仓。它把「怎么改、怎么测、怎么发版」写成可执行检查，模型只能按流程提交。
 
 ## 这是什么
 
-- 一份零依赖的 `scripts/ci-gate.mjs`，Node.js >= 20 即可运行，不需要安装任何包。
-- 一套 `ci.config.json` 声明式配置：每个仓库只声明自己的构建、测试、文档与发布差异。
-- 一组 GitHub Actions 模板与 ruleset 定义，保证 required check、tag 发布与防篡改。
+- 一个中心仓：检查逻辑、配置契约、GitHub Actions 复用工作流与 ruleset 定义都只存在这里。
+- 一个零依赖的 `scripts/ci-gate.mjs`，Node.js >= 20 即可运行，不安装任何包。
+- 一套薄模板：插件仓库只复制 caller workflow 与 `ci.config.json`，用 `@v1` 调用复用工作流。
+- 一条硬门禁：PR 只认唯一 required check `ci / ci-ok`，发布只认 tag。
+
+## 五层架构
+
+| 层 | 位置 | 作用 |
+| --- | --- | --- |
+| 模板层 | `templates/` | 下游复制一次的薄声明 |
+| 复用层 | `.github/workflows/reusable-*.yml` | 执行 CI、发布与巡检，下游 pin `@v1` |
+| 策略层 | `scripts/`、`schema/`、`rulesets/` | 唯一事实源，任何仓库不得私改 |
+| 强制层 | GitHub ruleset | 把 `ci / ci-ok` 变成合并硬条件 |
+| 巡检层 | `reusable-drift.yml` | 每周发现落后 pin 与回退接线 |
+
+设计与取舍见 [docs/architecture.md](./docs/architecture.md)。
 
 ## 强制的内容
 
-校验分为三种模式，任一失败即退出码 1：
+校验分三种模式，任一失败即退出码 1：
 
-- verify（默认）：配置合法、manifest 完整、导出存在、产物新鲜、类型与测试通过、双语文档同步、CHANGELOG 有当前版本、仓库卫生。
-- release：tag 必须等于版本号、必须落在 main 上、npm 上不得已存在同一版本、发布后核对 gitHead 与 provenance。
-- guard（只跑 PR）：清单全勾、分支名合规、不得新增 `.only` 或抑制注释、CI 敏感文件需 `ci-change` 标签、版本号只能走 release 分支、需人工 `human-approved` 标签。
+- verify（默认）：配置与接线合法、manifest 完整、导出存在、产物新鲜、类型与测试通过、双语文档同步、CHANGELOG 有当前版本、仓库卫生、本地发布守卫已接线。
+- release：tag 等于版本、tag 在 main 上、工作树干净、双 CHANGELOG 有版本节、npm 上不得已存在该版本、verify 全绿、发布后核对 gitHead 与 provenance。
+- guard（只跑 PR）：清单全勾、分支名合规、无新增 `.only` 或抑制注释、CI 敏感文件需 `ci-change` 标签、版本号只能走 release 分支、需 `human-approved` 标签。
+
+`wiring.workflows` 会拒绝任何把 gate 复制回插件仓、删掉 caller、或改成 `@main` 的改动；`wiring.prepublish` 要求发布型仓库把 `prepublishOnly` 接到中心 gate，否则本机 `npm publish` 不会被真正拦截。
 
 ## 接入一个插件仓库
 
-1. 复制 `templates/` 下的工作流、PR 模板与 `AGENTS.md`。
-2. 写一份 `ci.config.json`，只声明本仓库的差异。
-3. 用 `sync-ci` 同步校验器，并在 CI 里运行。
+1. 在插件仓根目录运行初始化脚本，写入三个 caller workflow、`ci.config.json`，并把 `.ci/` 加进 `.gitignore`。
+2. 按插件实际构建、测试与发布方式改 `ci.config.json`；只声明差异，不要复制检查逻辑。
+3. 提交 PR；首次 CI 通过后，维护者应用 `rulesets/main.json` 与 `rulesets/tags-v.json`。
 
 ```bash
-node scripts/sync-ci.mjs
-node scripts/ci-gate.mjs
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init
 ```
 
 ## 本地命令
 
 ```bash
-node scripts/ci-gate.mjs
-node scripts/ci-gate.mjs --release
-node scripts/ci-gate.mjs --after-publish
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --only=manifest,artifacts
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --json
 ```
+
+在本仓开发时直接运行 `node scripts/ci-gate.mjs`；在 CI 中则是 `node .ci/scripts/ci-gate.mjs`，检查的始终是调用方工作区。
 
 ## 仓库结构
 
 | 路径 | 作用 |
 | --- | --- |
-| `scripts/ci-gate.mjs` | 唯一的校验入口 |
-| `ci.config.json` | 本仓库的校验配置 |
-| `templates/` | 工作流、PR 模板、AGENTS.md 模板 |
-| `schema/` | 配置的 JSON Schema |
-| `rulesets/` | GitHub ruleset 定义 |
+| `scripts/ci-gate.mjs` | 唯一校验入口与 CLI |
+| `scripts/init-repo.mjs` | 给插件仓写入薄模板 |
+| `scripts/apply-rulesets.mjs` | 逐仓下发或校对 ruleset |
+| `scripts/check-drift.mjs` | 比对 pin 的 major 与最新 release |
+| `.github/workflows/reusable-*.yml` | CI、发布、巡检的复用工作流 |
+| `templates/` | caller workflow、PR 模板、AGENTS.md 模板 |
+| `schema/` | `ci.config.json` 的 JSON Schema |
+| `rulesets/` | main 与 tag 的保护规则 |
 | `docs/gates.md` | 每条检查的完整说明 |
 | `docs/model-playbook.md` | 模型遇到红项时的处理手册 |
 | `docs/release.md` | 发布与失败恢复手册 |
 
 ## 发布流程
 
-发布只能由 tag 触发，本机禁止 `npm publish`：
+发布只能由 tag 触发；本机禁止 `npm publish`：
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
+插件仓的 `release.yml` 调用本仓的 reusable release 工作流，完成预检、OIDC 发布、发布后核对与 GitHub Release。
+
 ## 给模型的工作准则
 
-模型必须遵守 [AGENTS.md](./AGENTS.md)：先读 [PROCESS.md](./PROCESS.md)，只在 `feat/`、`fix/` 等分支提交，把 CI 的红色项当作阻断，不得用跳过或压制绕过。每条检查的动机见 [docs/gates.md](./docs/gates.md)，红项处理与发布见 [docs/model-playbook.md](./docs/model-playbook.md)、[docs/release.md](./docs/release.md)。
+模型必须遵守 [AGENTS.md](./AGENTS.md)：先读 [PROCESS.md](./PROCESS.md)，只在 `feat/`、`fix/` 等分支提交，把 CI 红项当作阻断，不得用跳过或压制绕过。每条检查的动机见 [docs/gates.md](./docs/gates.md)，红项处理与发布见 [docs/model-playbook.md](./docs/model-playbook.md)、[docs/release.md](./docs/release.md)。
 
 ## 许可
 

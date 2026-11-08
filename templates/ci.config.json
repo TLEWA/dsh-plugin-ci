@@ -1,6 +1,6 @@
 {
+  "$schema": "https://raw.githubusercontent.com/TLEWA/dsh-plugin-ci/v1/schema/ci.config.schema.json",
   "version": 1,
-  "install": "ci",
   "build": {
     "command": "npm run build",
     "artifacts": [
@@ -11,7 +11,8 @@
   "typecheck": "npx tsc --noEmit",
   "test": "npm test",
   "testGlobs": [
-    "test/**/*.test.mjs"
+    "test/**/*.test.mjs",
+    "test/**/*.test.ts"
   ],
   "manifest": {
     "manifestVersion": 1,
@@ -22,18 +23,25 @@
   },
   "docs": {
     "pairs": [
-      ["README.md", "README.en.md"],
-      ["CHANGELOG.md", "CHANGELOG.en.md"]
+      [
+        "README.md",
+        "README.en.md"
+      ],
+      [
+        "CHANGELOG.md",
+        "CHANGELOG.en.md"
+      ]
     ],
     "required": [
       "README.md",
       "README.en.md",
       "CHANGELOG.md",
       "CHANGELOG.en.md",
-      "LICENSE",
       "AGENTS.md",
+      "LICENSE",
       ".github/PULL_REQUEST_TEMPLATE.md",
-      ".github/workflows/ci.yml"
+      ".github/workflows/ci.yml",
+      ".github/workflows/drift.yml"
     ],
     "published": [
       "README.md",
@@ -50,19 +58,16 @@
     ],
     "mustExclude": [
       "src/**",
-      "test/**"
+      "test/**",
+      "scripts/**"
     ],
     "maxBytes": 2097152
   },
   "release": {
     "publish": true,
-    "provenance": true,
-    "assetAlias": "{name}-{version}.tgz"
+    "provenance": true
   },
   "guards": {
     "requireHumanApprovedLabel": true
-  },
-  "gate": {
-    "allowUnstamped": false
   }
 }

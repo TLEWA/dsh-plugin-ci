@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本仓库是一个 DSH 插件。开工前先读 `PROCESS.md` 与 `docs/gates.md`，本文件只强调本类仓库最容易出错的点。
+本仓库是一个 DSH 插件。开工前先读仓库的 `README.md`；通用流程与检查项看中心仓的 [PROCESS.md](https://github.com/TLEWA/dsh-plugin-ci/blob/v1/PROCESS.md) 与 [docs/gates.md](https://github.com/TLEWA/dsh-plugin-ci/blob/v1/docs/gates.md)。本文件只强调本类仓库最容易出错的点。
 
 ## 插件的硬性约束
 
@@ -9,16 +9,17 @@
 - `cordis.patch.yml` 里 `insert[].name` 必须等于包名；`id` 是用户可见的短名，不要随意改。
 - `dsh.client.inject` 只允许 `@deepseek-ai/*`，裸模块名（如 `react`）不会被打包。
 - 构建产物（`lib/`）要提交；改源码必须重新构建并一起提交，否则 `artifacts.fresh` 会红。
+- `package.json` 的 `scripts.prepublishOnly` 必须调用 `dsh-ci-gate --prepublish`；它拦截本机 `npm publish`，不要删除或绕过。
 
 ## 每次改动
 
 1. 从最新 main 开 `feat/` 或 `fix/` 分支。
 2. 改代码、测试、双语文档与 CHANGELOG（同一个 PR）。
-3. 本地跑 gate，全绿再 push。
-4. 开 PR 并按模板勾选；不放行就继续修，不要跳过检查。
+3. 本地跑 gate，全绿再 push；不要复制 gate 脚本，CI 会通过 `.ci` 运行中心仓的版本。
+4. 开 PR 并按模板勾选；`ci / ci-ok` 通过后由维护者合并。
 
 ```bash
-node scripts/ci-gate.mjs
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate
 npm test
 ```
 

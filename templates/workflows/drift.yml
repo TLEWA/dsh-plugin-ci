@@ -11,14 +11,4 @@ permissions:
 
 jobs:
   drift:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Compare the local gate with the canonical one
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI_GATE_SOURCE: https://raw.githubusercontent.com/TLEWA/dsh-plugin-ci/main/scripts/ci-gate.mjs
-        run: node scripts/sync-ci.mjs --check
+    uses: TLEWA/dsh-plugin-ci/.github/workflows/reusable-drift.yml@v1

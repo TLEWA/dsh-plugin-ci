@@ -15,7 +15,8 @@
 - 执行 `npm publish`，或在非 `release/` 分支修改版本号。
 - 自己加 `ci-change` / `human-approved` 标签。
 - 用 `--skip=`、删检查、`.only`、`@ts-ignore`、`eslint-disable` 让红项变绿。
-- 直接改 `scripts/ci-gate.mjs`、`scripts/ci-process.json`、`ci.config.json`、schema 或 workflow 来放宽自己（这些文件属于敏感文件，PR 必须带 `ci-change` 标签，由维护者确认）。
+- 把 `ci-gate.mjs` 复制进插件仓，或把 caller 的 `@v1` 改成 `@main`；`wiring.workflows` 会拦。
+- 直接改 `ci.config.json`、caller workflow、schema 或 ruleset 来放宽自己（这些属于敏感文件，PR 必须带 `ci-change` 标签，由维护者确认）。
 - 把 `lib/` 产物当源码手改；产物只能由构建命令生成。
 
 ## 标准循环
@@ -27,7 +28,7 @@
 5. 本地跑：
 
 ```bash
-node scripts/ci-gate.mjs
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate
 npm test
 ```
 
@@ -40,6 +41,9 @@ npm test
 | 检查 | 含义 | 正确做法 |
 | --- | --- | --- |
 | `config.schema` | `ci.config.json` 缺键、多键或类型不对 | 按 `schema/ci.config.schema.json` 补齐；不要删键 |
+| `wiring.workflows` | caller 缺失、pin 不是 `@v1`、仓库里有 gate 副本、`.ci/` 没忽略 | 恢复薄 caller；删副本；把 `.ci/` 写进 `.gitignore` |
+| `wiring.repository` | 要发布但 `repository` 与 GitHub 仓库不符 | 改成 `https://github.com/<owner>/<repo>.git` 的规范形式 |
+| `wiring.prepublish` | 要发布但 `prepublishOnly` 没有调用中心 gate | 加 `npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --prepublish`，不要删 |
 | `manifest.engines` | 缺顶层 `engines.dsh`、`manifestVersion` 不是 1 | 加在 `package.json` 顶层，不要写进 `dsh.engines` |
 | `manifest.bundle` | `dsh.bundle.patch` 缺失，或 `insert[].name` 不等于包名 | 指向真实 `cordis.patch.yml`，`name` 写完整包名 |
 | `manifest.exports` | `exports`/`main` 指向不存在的文件，或 inject 了裸模块 | 指向真实文件；只 inject `@deepseek-ai/*` |
@@ -69,7 +73,7 @@ npm test
 
 ## 反模式
 
-- 把「本地能跑」当证据：PR 以 CI 的 `ci-ok` 为准。
-- 把 `--skip=` 写进 workflow 或脚本，让检查静默消失。
+- 把「本地能跑」当证据：PR 以 CI 的 `ci / ci-ok` 为准。
+- 把 `--skip=` 写进 workflow，或把 gate 复制进仓库让检查“看得见”却不再受中心控制。
 - 改文档把失败描述成通过；`docs.links` 与 `docs.pairs` 会拆穿。
 - 一次 PR 混入无关重构；`guard.g8` 会警告 diff 规模。

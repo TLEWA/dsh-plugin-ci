@@ -8,69 +8,12 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  pr-guard:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: PR guard
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/ci-gate.mjs --pr
-
-  verify:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        node: [20, 22, 24]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-      - name: Install dependencies
-        shell: bash
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund
-          elif [ -f pnpm-lock.yaml ]; then
-            corepack enable
-            pnpm install --frozen-lockfile
-          else
-            echo "no lockfile, skipping install"
-          fi
-      - name: Gate (with artifact freshness)
-        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
-        run: node scripts/ci-gate.mjs
-      - name: Gate (without artifact freshness)
-        if: matrix.os != 'ubuntu-latest' || matrix.node != 22
-        run: node scripts/ci-gate.mjs --skip=artifacts.fresh
-
-  ci-ok:
-    if: always()
-    needs: [pr-guard, verify]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Aggregate required check
-        shell: bash
-        run: |
-          echo "pr-guard: ${{ needs.pr-guard.result }}"
-          echo "verify:   ${{ needs.verify.result }}"
-          test "${{ needs.verify.result }}" = "success"
-          test "${{ needs.pr-guard.result }}" = "success" -o "${{ needs.pr-guard.result }}" = "skipped"
+  ci:
+    uses: ./.github/workflows/reusable-ci.yml

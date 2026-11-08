@@ -3,14 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Strict, zero-dependency CI/pr gate shared by the TLEWA DSH plugins",
+  "description": "Canonical CI policy, reusable workflows and gate for the TLEWA DSH plugins",
   "engines": {
     "node": ">=20"
   },
+  "bin": {
+    "dsh-ci-gate": "scripts/ci-gate.mjs",
+    "dsh-ci-init": "scripts/init-repo.mjs"
+  },
   "scripts": {
     "verify": "node scripts/ci-gate.mjs",
-    "test": "node --test test/gate.test.mjs",
-    "sync": "node scripts/sync-ci.mjs",
+    "test": "node --test test/gate.test.mjs test/workflows.test.mjs test/rulesets.test.mjs test/schema.test.mjs test/release-notes.test.mjs",
     "rulesets": "node scripts/apply-rulesets.mjs"
   },
   "license": "MIT"

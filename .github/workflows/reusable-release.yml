@@ -1,0 +1,89 @@
+name: reusable-release
+
+on:
+  workflow_call:
+    inputs:
+      use-token:
+        description: Publish with the NPM_TOKEN secret instead of npm trusted publishing
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      NPM_TOKEN:
+        required: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the calling repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check out the canonical release tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository || github.repository }}
+          ref: ${{ job.workflow_sha || github.sha }}
+          path: .ci
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Use the npm version that supports trusted publishing
+        run: npm install -g npm@11.21.0
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          elif [ -f pnpm-lock.yaml ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+          else
+            echo "no lockfile, skipping install"
+          fi
+      - name: Read the release configuration
+        id: config
+        shell: bash
+        run: |
+          node -e 'const fs = require("fs"); const c = JSON.parse(fs.readFileSync("ci.config.json", "utf8")); fs.appendFileSync(process.env.GITHUB_OUTPUT, "publish=" + String(c.release.publish) + "\n")'
+      - name: Release preflight
+        run: node .ci/scripts/ci-gate.mjs --release
+      - name: Publish with trusted publishing
+        if: ${{ steps.config.outputs.publish == 'true' && !inputs.use-token }}
+        run: npm publish --provenance --access public
+      - name: Configure the npm token fallback
+        if: ${{ steps.config.outputs.publish == 'true' && inputs.use-token }}
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then echo "NPM_TOKEN is empty" >&2; exit 1; fi
+          echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" >> "$HOME/.npmrc"
+      - name: Publish with NPM_TOKEN fallback
+        if: ${{ steps.config.outputs.publish == 'true' && inputs.use-token }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Verify the published artifact
+        if: ${{ steps.config.outputs.publish == 'true' }}
+        run: node .ci/scripts/ci-gate.mjs --after-publish
+      - name: Build release notes
+        run: node .ci/scripts/release-notes.mjs --out .release-notes.md
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm pack --ignore-scripts
+          PACKED="$(ls -t *.tgz | head -n 1)"
+          mv "$PACKED" "${VERSION}.tgz"
+          PREFIX="$(node -p 'require("./package.json").name.split("/").pop()')"
+          if [ -n "$PREFIX" ]; then cp "${VERSION}.tgz" "${PREFIX}-${VERSION}.tgz"; fi
+          sha256sum *.tgz > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file .release-notes.md *.tgz SHA256SUMS

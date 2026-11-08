@@ -4,18 +4,21 @@
  *
  * Zero dependencies, Node >= 20, ESM. Run from the repository root.
  *
- *   node scripts/ci-gate.mjs                  # verify (offline, default)
- *   node scripts/ci-gate.mjs --only=manifest  # run a subset
- *   node scripts/ci-gate.mjs --release        # release preflight (network)
- *   node scripts/ci-gate.mjs --after-publish  # post-publish attestation (network)
- *   node scripts/ci-gate.mjs --prepublish     # refuses local npm publish
- *   node scripts/ci-gate.mjs --pr             # PR guard (GitHub Actions only)
+ *   node .ci/scripts/ci-gate.mjs              # verify (offline, default)
+ *   node .ci/scripts/ci-gate.mjs --only=manifest
+ *   node .ci/scripts/ci-gate.mjs --release        # release preflight (network)
+ *   node .ci/scripts/ci-gate.mjs --after-publish  # post-publish attestation (network)
+ *   node .ci/scripts/ci-gate.mjs --prepublish     # refuses local npm publish
+ *   node .ci/scripts/ci-gate.mjs --pr             # PR guard (GitHub Actions only)
+ *
+ * The gate lives in the canonical repository and runs with cwd = the repository
+ * under test. Reusable workflows check the canonical repo out to .ci/ and call
+ * it from there; downstream repositories never carry a copy of this file.
  *
  * Exit code 0 = all selected checks green, 1 = at least one red, 2 = gate bug.
  */
 import { readFileSync, existsSync, statSync, readdirSync, appendFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -57,6 +60,7 @@ class GateError extends Error {
 
 const results = [];
 let CURRENT_ID = '';
+let INTERNAL = 0;
 function report(id, status, msg, fix) { results.push({ id, status, msg, fix: fix || null }); }
 function ok(msg) { report(CURRENT_ID, 'ok', msg || '通过'); }
 function fail(id, msg, fix) { report(id, 'fail', msg, fix); }
@@ -247,8 +251,9 @@ const S = {
 };
 
 const CONFIG_SPEC = S.obj({
+  $schema: S.string,
+  selfHosted: S.boolean,
   version: S.literal(1),
-  install: S.enum('ci', 'install', 'none'),
   build: S.nullable(S.obj({
     command: S.string,
     artifacts: S.strings,
@@ -275,15 +280,11 @@ const CONFIG_SPEC = S.obj({
   release: S.obj({
     publish: S.boolean,
     provenance: S.boolean,
-    assetAlias: S.string,
-  }, ['publish', 'provenance', 'assetAlias']),
+  }, ['publish', 'provenance']),
   guards: S.obj({
     requireHumanApprovedLabel: S.boolean,
   }, ['requireHumanApprovedLabel']),
-  gate: S.obj({
-    allowUnstamped: S.boolean,
-  }, ['allowUnstamped']),
-}, ['version', 'install', 'build', 'typecheck', 'test', 'testGlobs', 'manifest', 'docs', 'tarball', 'release', 'guards', 'gate']);
+}, ['version', 'build', 'typecheck', 'test', 'testGlobs', 'manifest', 'docs', 'tarball', 'release', 'guards']);
 
 function validateSpec(spec, val, path, errs) {
   if (spec.kind === 'nullable') {
@@ -377,19 +378,86 @@ function check(id, fn, modes) { checks.push({ id, fn, modes: modes || ['verify',
 
 check('config.schema', () => {
   const c = loadConfig();
-  ok('ci.config.json 合法（install=' + c.install + ', manifest=' + (c.manifest ? 'yes' : 'null') + '）');
+  ok('ci.config.json 合法（manifest=' + (c.manifest ? 'yes' : 'null') + ', release.publish=' + String(c.release.publish) + '）');
 });
 
-check('stamp.self', () => {
+function yamlText(p) { return has(p) ? read(p) : ''; }
+function usesRemote(text, file) {
+  return new RegExp('^[ \\t]*uses:[ \\t]*TLEWA/dsh-plugin-ci/\\.github/workflows/' + escRe(file) + '@v\\d+[ \\t]*$', 'm').test(text);
+}
+function usesLocal(text, file) {
+  return new RegExp('^[ \\t]*uses:[ \\t]*\\./\\.github/workflows/' + escRe(file) + '[ \\t]*$', 'm').test(text);
+}
+
+check('wiring.workflows', () => {
   const c = cfg();
-  if (c.gate.allowUnstamped) { skip('allowUnstamped=true，本仓不校验过程戳（canonical 仓自身）'); return; }
-  must(has('scripts/ci-process.json'), '缺少 scripts/ci-process.json（由 sync-ci.mjs 生成）', 'node scripts/sync-ci.mjs');
-  let st;
-  try { st = readJSON('scripts/ci-process.json'); }
-  catch (e) { throw new GateError('scripts/ci-process.json 不是合法 JSON', 'node scripts/sync-ci.mjs 重新生成'); }
-  const sha = createHash('sha256').update(read('scripts/ci-gate.mjs')).digest('hex');
-  must(st.sha256 === sha, 'ci-gate.mjs 的 sha256 与 ci-process.json 记录不一致（gate 被手改或未同步）', '不要手改 ci-gate.mjs；运行 node scripts/sync-ci.mjs 从 canonical 同步');
-  ok('gate ' + String(st.gateVersion) + ' 与过程戳一致');
+  const problems = [];
+  const ci = yamlText('.github/workflows/ci.yml');
+  if (!ci) problems.push('缺少 .github/workflows/ci.yml');
+  else if (c.selfHosted) {
+    if (!usesLocal(ci, 'reusable-ci.yml')) problems.push('selfHosted 仓的 ci.yml 必须调用 ./.github/workflows/reusable-ci.yml');
+    for (const f of ['reusable-ci.yml', 'reusable-release.yml', 'reusable-drift.yml']) {
+      if (!has('.github/workflows/' + f)) problems.push('selfHosted 仓缺少 .github/workflows/' + f);
+    }
+  } else if (!usesRemote(ci, 'reusable-ci.yml')) {
+    problems.push('ci.yml 必须调用 TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v<major>（不要复制 gate 脚本）');
+  }
+  if (!c.selfHosted) {
+    const drift = yamlText('.github/workflows/drift.yml');
+    if (!drift) problems.push('缺少 .github/workflows/drift.yml');
+    else if (!usesRemote(drift, 'reusable-drift.yml')) problems.push('drift.yml 必须调用 TLEWA/dsh-plugin-ci/.github/workflows/reusable-drift.yml@v<major>');
+  }
+  if (c.release.publish) {
+    const release = yamlText('.github/workflows/release.yml');
+    if (!release) problems.push('release.publish=true 但缺少 .github/workflows/release.yml');
+    else if (c.selfHosted) {
+      if (!usesLocal(release, 'reusable-release.yml')) problems.push('selfHosted 仓的 release.yml 必须调用 ./.github/workflows/reusable-release.yml');
+    } else if (!usesRemote(release, 'reusable-release.yml')) {
+      problems.push('release.yml 必须调用 TLEWA/dsh-plugin-ci/.github/workflows/reusable-release.yml@v<major>');
+    }
+  }
+  const forbidden = c.selfHosted
+    ? ['scripts/ci-process.json', 'scripts/sync-ci.mjs']
+    : ['scripts/ci-gate.mjs', 'scripts/ci-process.json', 'scripts/sync-ci.mjs'];
+  for (const f of forbidden) {
+    if (has(f)) problems.push(f + ' 不应存在：外部仓的 gate 由 reusable workflow 从中心仓检出到 .ci/，selfHosted 仓只允许 vendoring gate 本身');
+  }
+  if (!c.selfHosted) {
+    const ignore = has('.gitignore') ? read('.gitignore') : '';
+    if (!/^\s*\.ci\/?\s*$/m.test(ignore)) problems.push('.gitignore 缺少 .ci/ 条目（reusable workflow 会把中心仓检出到 .ci/）');
+  }
+  must(problems.length === 0, '仓库接线不符合中心仓约定：\n' + problems.map((x) => '    - ' + x).join('\n'),
+    '在插件仓根目录运行 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init 生成 caller workflow，或对照 templates/workflows/');
+  ok('caller workflow 与中心仓接线一致');
+});
+
+check('wiring.repository', () => {
+  const c = cfg();
+  if (!c.release.publish) { skip('release.publish=false，无需核对 npm repository'); return; }
+  const p = pkg();
+  const raw = typeof p.repository === 'string' ? p.repository : p.repository && p.repository.url;
+  must(typeof raw === 'string' && raw.length > 0,
+    'release.publish=true 时 package.json 必须声明 repository（npm provenance 会核对仓地址）',
+    '加 "repository": { "type": "git", "url": "https://github.com/TLEWA/<repo>.git" }');
+  const norm = String(raw).replace(/^git\+/, '').replace(/^git@github\.com:/, 'https://github.com/').replace(/\.git$/, '').replace(/\/$/, '');
+  if (process.env.GITHUB_REPOSITORY) {
+    const expected = 'https://github.com/' + process.env.GITHUB_REPOSITORY;
+    must(norm === expected, 'package.json repository (' + norm + ') 必须等于 ' + expected, '改成 ' + expected + '.git');
+  } else {
+    must(norm.indexOf('/' + p.name.split('/').pop()) >= 0, 'repository (' + norm + ') 与包名 ' + p.name + ' 不一致', '改成插件仓地址');
+  }
+  ok('repository 与发布仓一致');
+});
+
+check('wiring.prepublish', () => {
+  const c = cfg();
+  if (!c.release.publish) { skip('release.publish=false，无需本地发布守卫'); return; }
+  const p = pkg();
+  const cmd = p.scripts && p.scripts.prepublishOnly;
+  must(typeof cmd === 'string' && cmd.indexOf('dsh-ci-gate') >= 0 && cmd.indexOf('--prepublish') >= 0,
+    'release.publish=true 时 package.json 的 prepublishOnly 必须调用 dsh-ci-gate --prepublish，否则本机 npm publish 不会被拦截',
+    '加 "prepublishOnly": "npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --prepublish"');
+  ok('prepublishOnly 已接本地发布守卫');
 });
 
 check('manifest.name', () => {
@@ -454,7 +522,7 @@ check('manifest.engines', () => {
   const mv = p.dsh ? p.dsh.manifestVersion : undefined;
   must(mv === c.manifestVersion, 'dsh.manifestVersion 必须是 ' + c.manifestVersion + '（实际 ' + String(mv) + '）', '在 package.json 的 dsh 里加 "manifestVersion": ' + c.manifestVersion);
   if (p.dsh && p.dsh.engines && p.dsh.engines.dsh && p.dsh.engines.dsh !== e.dsh) {
-    warn('manifest.engines', 'dsh.engines.dsh (' + p.dsh.engines.dsh + ') 与顶层 engines.dsh 不一致，重复声明会被忽略');
+    warn('dsh.engines.dsh (' + p.dsh.engines.dsh + ') 与顶层 engines.dsh 不一致，重复声明会被忽略');
   }
   ok('engines.dsh=' + e.dsh + '，manifestVersion=' + mv);
 });
@@ -575,7 +643,7 @@ check('tests', () => {
     const files = walk(dir).map((f) => f.replace(/^\.\//, ''));
     const looks = files.filter((f) => /\.(test|spec)\.[cm]?[jt]s$/.test(f) || /(^|\/)test[-_].*\.(mjs|js|cjs)$/.test(f));
     const uncovered = looks.filter((f) => !c.testGlobs.some((g) => globToRegExp(g).test(f)));
-    if (uncovered.length > 0) warn('tests', '以下测试文件不会被 test 命令收集，若是手工 E2E 请写进 PR 清单: ' + uncovered.slice(0, 6).join(', '));
+    if (uncovered.length > 0) warn('以下测试文件不会被 test 命令收集，若是手工 E2E 请写进 PR 清单: ' + uncovered.slice(0, 6).join(', '));
   }
 });
 
@@ -720,7 +788,7 @@ check('repo.hygiene', () => {
   const ga = read('.gitattributes');
   must(/^\*\s+text=auto/m.test(ga), '.gitattributes 缺少 "* text=auto"', '补一行 "* text=auto eol=lf"');
   const big = tracked.filter((f) => { try { return statSync(join(ROOT, f)).size > 5 * 1024 * 1024; } catch (e) { return false; } });
-  if (big.length > 0) warn('repo.hygiene', '仓库里有 >5 MiB 的文件: ' + big.slice(0, 4).join(', '));
+  if (big.length > 0) warn('仓库里有 >5 MiB 的文件: ' + big.slice(0, 4).join(', '));
   ok('仓库卫生检查通过');
 });
 
@@ -754,9 +822,17 @@ check('release.r2-ancestor', () => {
   ok('tag 是 ' + bases[0] + ' 的祖先');
 }, ['release']);
 
+function dirtyLines() {
+  return String(git(['status', '--porcelain']).stdout).split(/\r?\n/).filter((line) => {
+    if (!line) return false;
+    const path = line.slice(3).trim();
+    return !(path === '.ci' || path.indexOf('.ci/') === 0);
+  });
+}
+
 check('release.r3-clean-tree', () => {
   const c = cfg();
-  must(!String(git(['status', '--porcelain']).stdout).trim(), '发布工作区不干净（有未提交改动）', '提交或还原改动后再发版');
+  must(dirtyLines().length === 0, '发布工作区不干净（有未提交改动）: ' + dirtyLines().slice(0, 4).join(' | '), '提交或还原改动后再发版');
   if (c.build) {
     const r = sh(c.build.command);
     must(r.code === 0, '发布前构建失败: ' + tail(r.out, 12), '修好构建');
@@ -777,6 +853,16 @@ check('release.r4-notes', () => {
   }
   ok('中英 CHANGELOG 都有 ' + p.version + ' 小节');
 }, ['release']);
+
+async function waitForRegistry(name, version, attempts) {
+  let last = null;
+  for (let i = 0; i < attempts; i++) {
+    last = await registryVersion(name, version);
+    if (last.status === 200) return last;
+    if (i < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  return last;
+}
 
 async function registryVersion(name, version) {
   let res;
@@ -814,8 +900,8 @@ check('release.r7-post', async () => {
   const p = pkg();
   const expected = process.env.GITHUB_SHA || '';
   must(expected.length > 0, '缺少 GITHUB_SHA，无法核对发布提交', '在 GitHub Actions 中运行 --after-publish');
-  const r = await registryVersion(p.name, p.version);
-  must(r.status === 200, 'registry 上还没有 ' + p.name + '@' + p.version + '（返回 ' + r.status + '）', '等待 registry 同步后重跑，或检查 npm publish 是否失败');
+  const r = await waitForRegistry(p.name, p.version, 6);
+  must(r.status === 200, 'registry 上还没有 ' + p.name + '@' + p.version + '（重试后仍返回 ' + r.status + '）', '等待 registry 同步后重跑，或检查 npm publish 是否失败');
   const j = r.json || {};
   must(j.gitHead === expected, 'registry gitHead (' + String(j.gitHead) + ') 与 GITHUB_SHA (' + expected + ') 不一致', '确认 tag 指向的提交就是发布提交');
   must(j.dist && typeof j.dist.integrity === 'string' && j.dist.integrity.length > 0, 'registry 缺少 dist.integrity', '检查发布是否完整');
@@ -930,13 +1016,13 @@ check('guard.g4-suppressions', () => {
 }, ['guard']);
 
 check('guard.g5-sensitive', () => {
+  const selfHosted = cfg().selfHosted;
   const sensitive = diffFiles().filter((f) =>
     /^\.github\/workflows\//.test(f.path) ||
-    f.path === 'scripts/ci-gate.mjs' ||
-    f.path === 'scripts/ci-process.json' ||
     f.path === 'ci.config.json' ||
-    f.path === 'schema/ci.config.schema.json' ||
-    f.path === '.github/PULL_REQUEST_TEMPLATE.md');
+    f.path === 'AGENTS.md' ||
+    f.path === '.github/PULL_REQUEST_TEMPLATE.md' ||
+    (selfHosted && /^(scripts|schema|rulesets|templates)\//.test(f.path)));
   if (sensitive.length === 0) { ok('未触碰敏感文件'); return; }
   must(labelNames().indexOf('ci-change') >= 0, 'PR 修改了 CI 敏感文件，但没有 ci-change 标签（须由维护者确认后添加）: ' + sensitive.map((f) => f.path).join(', '), '请维护者 review 后给 PR 加 ci-change 标签再合并');
   ok('敏感文件改动已由维护者加 ci-change 标签');
@@ -973,8 +1059,8 @@ check('guard.g8-diff-size', () => {
   const lockRe = /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/;
   let lines = 0;
   for (const f of files) if (!lockRe.test(f.path)) lines += f.addedCount + f.removedCount;
-  if (files.length > 60) warn('guard.g8-diff-size', 'PR 改动 ' + files.length + ' 个文件（>60），请确认不是生成物或批量改写');
-  if (lines > 1200) warn('guard.g8-diff-size', 'PR 改动 ' + lines + ' 行（>1200，不含 lockfile），请拆分或说明');
+  if (files.length > 60) warn('PR 改动 ' + files.length + ' 个文件（>60），请确认不是生成物或批量改写');
+  if (lines > 1200) warn('PR 改动 ' + lines + ' 行（>1200，不含 lockfile），请拆分或说明');
   if (files.length <= 60 && lines <= 1200) ok('diff 规模正常（' + files.length + ' 文件 / ' + lines + ' 行）');
 }, ['guard']);
 
@@ -1020,7 +1106,7 @@ function summaryMarkdown() {
 
 async function main() {
   if (OPTS.help) {
-    console.log('用法: node scripts/ci-gate.mjs [--only=a,b] [--skip=c] [--json] [--release|--after-publish|--prepublish|--pr]');
+    console.log('用法: node .ci/scripts/ci-gate.mjs [--only=a,b] [--skip=c] [--json] [--release|--after-publish|--prepublish|--pr]');
     return;
   }
   for (const c of checks) {
@@ -1031,6 +1117,7 @@ async function main() {
       await c.fn();
     } catch (e) {
       if (e instanceof GateError) { fail(c.id, e.message, e.fix); continue; }
+      INTERNAL++;
       fail(c.id, '检查内部错误: ' + (e && e.message ? e.message : String(e)), '这是 gate 的 bug，请报告到 dsh-plugin-ci');
       if (process.env.CI_GATE_DEBUG) console.error(e);
     }
@@ -1040,7 +1127,7 @@ async function main() {
   if (process.env.GITHUB_STEP_SUMMARY) {
     try { appendFileSync(process.env.GITHUB_STEP_SUMMARY, summaryMarkdown()); } catch (e) { /* ignore */ }
   }
-  process.exitCode = results.some((r) => r.status === 'fail') ? 1 : 0;
+  process.exitCode = INTERNAL > 0 ? 2 : results.some((r) => r.status === 'fail') ? 1 : 0;
 }
 
 main().catch((e) => {

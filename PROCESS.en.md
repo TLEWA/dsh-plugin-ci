@@ -4,17 +4,17 @@ This document defines the complete path from an idea to a release. Models must f
 
 ## Roles
 
-- Human: decides what to build, reviews and approves pull requests, adds the `human-approved` and `ci-change` labels, and decides the version.
-- Model: reads the docs, opens a branch, writes implementation and tests, runs verify, opens the PR, fixes red lines, and maintains the bilingual docs and CHANGELOG.
+- Human: decides what to build, reviews and approves pull requests, adds the `human-approved` and `ci-change` labels, decides the version and creates tags.
+- Model: reads the docs, opens a branch, writes implementation and tests, runs the gate, opens the PR, fixes red lines, and maintains the bilingual docs and CHANGELOG.
 
 ## The full path of one change
 
 1. Read [AGENTS.md](./AGENTS.md) and [docs/gates.md](./docs/gates.md); identify the change type and its blast radius.
 2. Branch from the latest main, with a type prefix in the branch name.
-3. Change code, tests, bilingual README or CHANGELOG in the same commits.
-4. Run verify locally and push only when everything is green.
+3. Change code, tests, bilingual docs or CHANGELOG in the same commits.
+4. Run the gate locally and push only when everything is green; a plugin repository uses the command published by the center and never copies scripts.
 5. Open the PR, tick every template item, and explain the motivation and how it was verified.
-6. A human merges once CI is green and the labels are present; delete the branch afterwards.
+6. A human merges once `ci / ci-ok` is green and the labels are present; delete the branch afterwards.
 
 ```bash
 git switch main
@@ -32,23 +32,29 @@ git switch -c feat/my-change
 
 - Read the `fix:` hint on each failing line and fix the root cause; never edit the gate to get around it.
 - Never add `.only`, `.skip`, `@ts-ignore` or `eslint-disable`.
-- Changes to workflows, `ci.config.json` or `scripts/ci-gate.mjs` need the maintainer's `ci-change` label; models must not add it themselves.
+- Changes to a caller workflow, `ci.config.json`, the schema or center policy need the maintainer `ci-change` label; models must not add it themselves.
 - If it keeps failing, document every attempt in the PR and hand it to a human instead of retrying silently.
 
 ## Version and release
 
 1. Bump the version on a `release/x.y.z` branch and add the same version section to both CHANGELOG files.
 2. After it lands on main, a human creates the tag; the tag must equal the version.
-3. The release workflow publishes to npm, creates the GitHub Release and verifies the result.
+3. The caller `release.yml` invokes the center reusable release workflow, which publishes to npm, creates the GitHub Release and verifies the result.
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
+## How reusable workflows take effect
+
+A plugin `.github/workflows/*.yml` is only a caller that points at the center with `@v1`; when the center fixes a bug or adds a check, every repository picks it up on its next CI run with no sync script.
+
+That pin is a contract: models must not switch it to `@main`, copy the gate back into the repository, or delete a caller. `wiring.workflows` rejects all of these.
+
 ## Forbidden
 
 - Running `npm publish` on a local machine.
-- Hand-editing `scripts/ci-gate.mjs` (it must be synced from the canonical repository).
+- Copying or hand-editing `ci-gate.mjs`, or vendoring center scripts into a plugin repository.
 - Deleting or rewriting the required items of the PR template.
-- Force-pushing main or merging your own PR while CI is red.
+- Force-pushing main, merging around `ci / ci-ok`, or merging your own PR while CI is red.

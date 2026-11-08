@@ -4,14 +4,22 @@
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["~DEFAULT_BRANCH"],
+      "include": [
+        "~DEFAULT_BRANCH"
+      ],
       "exclude": []
     }
   },
   "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    { "type": "required_linear_history" },
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "required_linear_history"
+    },
     {
       "type": "pull_request",
       "parameters": {
@@ -26,7 +34,11 @@
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": true,
-        "required_status_checks": [{ "context": "ci-ok" }]
+        "required_status_checks": [
+          {
+            "context": "ci / ci-ok"
+          }
+        ]
       }
     }
   ],

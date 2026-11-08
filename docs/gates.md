@@ -7,7 +7,9 @@
 | 检查 | 拦什么 | 为什么 |
 | --- | --- | --- |
 | `config.schema` | 未知键、类型错误、缺字段 | 配置写错时静默失效比报错更危险 |
-| `stamp.self` | 手改 gate、未同步 | 六个仓库必须跑同一份逻辑 |
+| `wiring.workflows` | caller 缺失、pin 不是 `@vN`、把 gate 复制回本仓、`.ci/` 没进 `.gitignore` | 复用工作流是唯一执行入口，副本会让规则分叉 |
+| `wiring.repository` | 要发布但 `package.json` 的 `repository` 与 GitHub 仓库不符 | npm provenance 与源码追溯依赖这个字段 |
+| `wiring.prepublish` | 要发布但 `prepublishOnly` 没有接 `dsh-ci-gate --prepublish` | 没有这个钩子，本机 `npm publish` 不会被拦，发布只能由 tag 触发 |
 | `manifest.name` | 包名/版本格式、仓库名不一致 | npm 与 GitHub 对不上时无法追溯 |
 | `manifest.bundle` | patch 文件缺失、name 与包名不符 | 宿主按包名解析插件，写错等于不生效 |
 | `manifest.engines` | 缺顶层 `engines.dsh`、manifestVersion 不符 | 宿主与插件市场只读顶层字段 |
@@ -17,7 +19,7 @@
 | `artifacts.fresh` | 构建产物不新鲜 | 提交的 dist 与源码不一致会误导用户 |
 | `typecheck` | 类型错误 | 类型是契约，不能靠运行时碰运气 |
 | `tests` | 测试失败、测试未被收集 | 没被跑到的测试等于没有 |
-| `docs.pairs` | 中英文标题/命令/版本不一致 | 只改一份文档等于另一份在说谎 |
+| `docs.pairs` | 中英文标题数量/命令/版本不一致 | 只改一份文档等于另一份在说谎 |
 | `docs.links` | 相对链接失效 | 文档死链是长期腐化的起点 |
 | `version.changelog` | 版本小节缺失或为空 | 用户升级前需要知道破坏性变更 |
 | `repo.hygiene` | 提交 node_modules、.env、tgz、日志 | 泄漏密钥与仓库膨胀 |
@@ -28,7 +30,7 @@
 | --- | --- |
 | `release.r1-tag-version` | tag 与 package.json 版本不一致 |
 | `release.r2-ancestor` | tag 不在 main 上（绕过评审的直接发版） |
-| `release.r3-clean-tree` | 工作区脏、产物不新鲜 |
+| `release.r3-clean-tree` | 工作区脏、产物不新鲜（`.ci` 不算脏） |
 | `release.r4-notes` | CHANGELOG 缺当前版本 |
 | `release.r5-unpublished` | npm 上已存在同版本（覆盖发布） |
 | `release.r6-verify` | verify 未全绿就发布 |
@@ -52,4 +54,4 @@
 
 - `✓` 通过，`·` 跳过（配置为 null 或模式不适用），`!` 警告（不阻断），`✗` 失败。
 - 失败行下面紧跟 `fix:`，写的是最短修复路径，不是建议。
-- 想只跑一条：`node scripts/ci-gate.mjs --only=manifest.engines`。
+- 在本仓跑 `node scripts/ci-gate.mjs --only=manifest.engines`；在插件仓用 `npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --only=manifest.engines`，CI 里则是 `node .ci/scripts/ci-gate.mjs`。
