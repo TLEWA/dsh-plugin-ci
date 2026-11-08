@@ -37,6 +37,28 @@ export function rulesetEndpoint(repo, found) {
   return 'repos/' + repo + '/rulesets' + (found ? '/' + found.id : '');
 }
 
+function subset(expected, actual) {
+  if (expected === null || typeof expected !== 'object') return expected === actual;
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual) || expected.length !== actual.length) return false;
+    return expected.every((v, i) => subset(v, actual[i]));
+  }
+  if (!actual || typeof actual !== 'object') return false;
+  return Object.keys(expected).every((k) => subset(expected[k], actual[k]));
+}
+
+// GitHub adds default parameters and may reorder rules. Compare the declared
+// contract as a subset keyed by rule type instead of raw API output.
+export function rulesMatch(expectedRules, liveRules) {
+  if (!Array.isArray(expectedRules) || !Array.isArray(liveRules)) return false;
+  const live = new Map(liveRules.map((r) => [r.type, r]));
+  if (live.size !== expectedRules.length) return false;
+  return expectedRules.every((rule) => {
+    const other = live.get(rule.type);
+    return other && subset(rule, other);
+  });
+}
+
 function main() {
   const dryRun = process.argv.includes('--dry-run');
   const checkOnly = process.argv.includes('--check');
@@ -60,12 +82,15 @@ function main() {
       if (checkOnly) {
         let live = null;
         if (found) live = JSON.parse(gh(['api', 'repos/' + repo + '/rulesets/' + found.id]));
-        const keys = ['target', 'enforcement', 'conditions', 'rules', 'bypass_actors'];
-        const same = live && keys.every((k) => stable(live[k]) === stable(spec[k]));
+        const keys = ['target', 'enforcement', 'conditions', 'bypass_actors'];
+        const same = live && keys.every((k) => stable(live[k]) === stable(spec[k])) && rulesMatch(spec.rules, live.rules);
         console.log((same ? 'ok    ' : 'DRIFT ') + repo + '  ' + spec.name);
         if (!same) {
           drift = true;
-          if (live) for (const k of keys) if (stable(live[k]) !== stable(spec[k])) console.log('       differs: ' + k);
+          if (live) {
+            for (const k of keys) if (stable(live[k]) !== stable(spec[k])) console.log('       differs: ' + k);
+            if (!rulesMatch(spec.rules, live.rules)) console.log('       differs: rules');
+          }
         }
         continue;
       }
