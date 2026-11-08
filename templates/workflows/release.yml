@@ -51,8 +51,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           npm pack --ignore-scripts
-          cp "$(ls *.tgz | head -n 1)" "${VERSION}.tgz"
-          PREFIX="$(node -p "require('./package.json').name.split('/').pop()")"
-          cp "${VERSION}.tgz" "${PREFIX}-${VERSION}.tgz" || true
+          PACKED="$(ls -t *.tgz | head -n 1)"
+          mv "$PACKED" "${VERSION}.tgz"
+          PREFIX="$(node -p 'require("./package.json").name.split("/").pop()')"
+          cp "${VERSION}.tgz" "${PREFIX}-${VERSION}.tgz"
           sha256sum *.tgz > SHA256SUMS
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file .release-notes.md *.tgz SHA256SUMS

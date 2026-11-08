@@ -56,11 +56,12 @@ class GateError extends Error {
 }
 
 const results = [];
+let CURRENT_ID = '';
 function report(id, status, msg, fix) { results.push({ id, status, msg, fix: fix || null }); }
-function ok(id, msg) { report(id, 'ok', msg || '通过'); }
+function ok(msg) { report(CURRENT_ID, 'ok', msg || '通过'); }
 function fail(id, msg, fix) { report(id, 'fail', msg, fix); }
-function warn(id, msg) { report(id, 'warn', msg); }
-function skip(id, msg) { report(id, 'skip', msg); }
+function warn(msg) { report(CURRENT_ID, 'warn', msg); }
+function skip(msg) { report(CURRENT_ID, 'skip', msg); }
 function must(cond, msg, fix) { if (!cond) throw new GateError(msg, fix); }
 
 const useColor = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR && !process.env.CI;
@@ -1025,6 +1026,7 @@ async function main() {
   for (const c of checks) {
     if (c.modes.indexOf(OPTS.mode) < 0) continue;
     if (!selected(c.id)) continue;
+    CURRENT_ID = c.id;
     try {
       await c.fn();
     } catch (e) {
