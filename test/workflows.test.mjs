@@ -40,6 +40,7 @@ test('the reusable CI workflow checks out the canonical gate and aggregates ci-o
   assert.match(text, /path: \.ci/);
   assert.match(text, /node \.ci\/scripts\/ci-gate\.mjs/);
   assert.match(text, /fromJSON\(inputs\.matrix\)/);
+  assert.match(text, /matrix:\n\s+include: \$\{\{ fromJSON\(inputs\.matrix\) \}\}/);
   for (const job of ['pr-guard:', 'verify:', 'ci-ok:']) assert.ok(text.indexOf(job) >= 0, 'missing job ' + job);
   assert.match(text, /needs: \[pr-guard, verify\]/);
 });
