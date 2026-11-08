@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Fixed the canonical `release.yml` not calling `reusable-release.yml`, which left GitHub Releases without `*.tgz` or `SHA256SUMS` assets.
+- Fixed `apply-rulesets.mjs` including the HTTP method in the endpoint, which made `gh api` return 404.
 
 ## [1.0.0] - 2026-11-09
 

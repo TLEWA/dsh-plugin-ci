@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rulesetEndpoint } from '../scripts/apply-rulesets.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -25,6 +26,11 @@ test('main protection requires the reusable workflow aggregate check', () => {
 test('main protection forbids deletion, force pushes and merge commits', () => {
   const types = read('rulesets/main.json').rules.map((r) => r.type);
   for (const t of ['deletion', 'non_fast_forward', 'required_linear_history']) assert.ok(types.indexOf(t) >= 0, 'missing ' + t);
+});
+
+test('ruleset endpoints do not include the HTTP method', () => {
+  assert.equal(rulesetEndpoint('TLEWA/example', null), 'repos/TLEWA/example/rulesets');
+  assert.equal(rulesetEndpoint('TLEWA/example', { id: 42 }), 'repos/TLEWA/example/rulesets/42');
 });
 
 test('release tags protect semver tags but leave the moving major tag movable', () => {
