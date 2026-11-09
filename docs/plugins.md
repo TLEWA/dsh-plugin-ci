@@ -27,13 +27,16 @@
 | [dsh-sidebar-organizer](https://github.com/TLEWA/dsh-sidebar-organizer) · [npm](https://www.npmjs.com/package/dsh-sidebar-organizer) | 七区域侧栏、工具条与菜单的长按拖拽排序和收纳，布局可导入导出。 | `npm run build` → `lib`（git-diff）；CI 不跑测试（`test: null`） |
 | [dsh-sidebar-row-menu](https://github.com/TLEWA/dsh-sidebar-row-menu) · [npm](https://www.npmjs.com/package/dsh-sidebar-row-menu) | 给 DSH 侧栏的工作区行和会话行加右键菜单，含打开方式、更多操作与归档清理。 | `npm run build:client` → `lib`（git-diff）；`npm test` |
 | [dsh-utf8-output](https://github.com/TLEWA/dsh-utf8-output) · [npm](https://www.npmjs.com/package/dsh-utf8-output) | 修复 Windows 下 DSH 子进程 GBK/CP936/CP932 输出乱码，在字节被解码前重新解码。 | 无需构建；`node test/run.mjs` |
+| [dsh-ptc-noargs](https://github.com/TLEWA/dsh-ptc-noargs) | 修复 PTC `run_code` 中无参工具调用被拒绝的问题：在 TypeScript function-body 程序前注入一行 prelude，把省略或 undefined 的首参归一化为 `{}`。 | 无需构建；`npm test` |
+
+> dsh-ptc-noargs 已接入发布流程，npm 包尚未首发；首次 tag 发布后补 npm 链接。
 
 ## 共同接线
 
 - 表中的仓库都 pin `@v1`；中心仓发布新 major 后，`reusable-drift.yml` 会巡检落后 pin。
 - CI 矩阵为 Ubuntu / Windows × Node 20 / 22 / 24，唯一 required check 是 `ci / ci-ok`。
 - 发布只由 tag 触发：`release.yml` 调用 `reusable-release.yml@v1`，完成预检、npm 发布、发布后核对与 GitHub Release。
-- 表中的仓库都发布 npm 包并开启 provenance；release caller 均使用 `with: use-token: true` 和仓库 secret `NPM_TOKEN`，不走 OIDC。
+- 表中的发布型仓库均配置为发布 npm 包并开启 provenance；dsh-ptc-noargs 待首次 tag 发布。release caller 均使用 `with: use-token: true` 和仓库 secret `NPM_TOKEN`，不走 OIDC。
 - 本机发布由 `prepublishOnly` 调用 `dsh-ci-gate --prepublish` 拦截；不要直接运行 `npm publish`。
 
 ## 维护规则
