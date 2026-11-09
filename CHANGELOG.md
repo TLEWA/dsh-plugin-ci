@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- 修复 caller 的 `pull_request` 触发器缺少 `labeled` / `unlabeled`，加标签后不必再单独 push；中心仓模板与自用 workflow 已同步。
 - 修复 canonical 的 `release.yml` 未调用 `reusable-release.yml`，导致 GitHub Release 缺少 `*.tgz` 与 `SHA256SUMS` 资产。
 - 修复 `apply-rulesets.mjs` 把 HTTP 方法拼进 endpoint，导致 `gh api` 返回 404。
 
