@@ -72,7 +72,7 @@ jobs:
 
       - name: Verify the npm release
         env:
-          GITHUB_SHA: ${{ steps.release.outputs.sha }}
+          DSH_CI_EXPECTED_SHA: ${{ steps.release.outputs.sha }}
         run: node .ci/scripts/ci-gate.mjs --after-publish
 
       - name: Move the canonical tooling out of the package tree

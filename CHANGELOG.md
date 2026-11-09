@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - 新增 `reusable-release-recover.yml` 与 release caller 的 `workflow_dispatch`：npm 已发布但 GitHub Release 缺失或资产不全时，输入 tag 补建/修复，可选 `dry_run`；恢复前核对 tag/version、main 祖先、registry `gitHead`/provenance 与本地打包 integrity，绝不重新 `npm publish`。
+- 修复恢复流程无法覆盖 GitHub 保留的 `GITHUB_SHA`，导致 `--after-publish` 误判发布提交：workflow 改用 `DSH_CI_EXPECTED_SHA`，gate 优先读取它并回退到 `GITHUB_SHA`。
 - 修复 `--after-publish` 只等待 15 秒导致 registry 传播较慢时发布工作流误报；默认改为约 10 分钟（120 × 5 秒），可用 `DSH_CI_REGISTRY_ATTEMPTS` / `DSH_CI_REGISTRY_DELAY_MS` 覆盖。
 - 修复 caller 的 `pull_request` 触发器缺少 `labeled` / `unlabeled`，加标签后不必再单独 push；中心仓模板与自用 workflow 已同步。
 - 修复 canonical 的 `release.yml` 未调用 `reusable-release.yml`，导致 GitHub Release 缺少 `*.tgz` 与 `SHA256SUMS` 资产。

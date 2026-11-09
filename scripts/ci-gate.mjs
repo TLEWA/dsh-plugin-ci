@@ -903,15 +903,15 @@ check('release.r7-post', async () => {
   const c = cfg();
   if (!c.release.publish) { skip('release.publish=false'); return; }
   const p = pkg();
-  const expected = process.env.GITHUB_SHA || '';
-  must(expected.length > 0, '缺少 GITHUB_SHA，无法核对发布提交', '在 GitHub Actions 中运行 --after-publish');
+  const expected = process.env.DSH_CI_EXPECTED_SHA || process.env.GITHUB_SHA || '';
+  must(expected.length > 0, '缺少 DSH_CI_EXPECTED_SHA / GITHUB_SHA，无法核对发布提交', '在 GitHub Actions 中运行 --after-publish');
   const attempts = envPositiveInt('DSH_CI_REGISTRY_ATTEMPTS', 120);
   const delayMs = envPositiveInt('DSH_CI_REGISTRY_DELAY_MS', 5000);
   const waitSec = Math.round((attempts * delayMs) / 1000);
   const r = await waitForRegistry(p.name, p.version, attempts, delayMs);
   must(r.status === 200, 'registry 上还没有 ' + p.name + '@' + p.version + '（等待约 ' + waitSec + ' 秒后仍返回 ' + r.status + '）', '检查 npm publish 是否失败；如果只是 registry 传播慢，设置 DSH_CI_REGISTRY_ATTEMPTS 后重跑 --after-publish');
   const j = r.json || {};
-  must(j.gitHead === expected, 'registry gitHead (' + String(j.gitHead) + ') 与 GITHUB_SHA (' + expected + ') 不一致', '确认 tag 指向的提交就是发布提交');
+  must(j.gitHead === expected, 'registry gitHead (' + String(j.gitHead) + ') 与期望的发布提交 (' + expected + ') 不一致', '确认 tag 指向的提交就是发布提交；恢复流程通过 DSH_CI_EXPECTED_SHA 传入 tag 提交');
   must(j.dist && typeof j.dist.integrity === 'string' && j.dist.integrity.length > 0, 'registry 缺少 dist.integrity', '检查发布是否完整');
   if (c.release.provenance) {
     const att = j.dist && j.dist.attestations;
