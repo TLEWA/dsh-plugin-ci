@@ -1,5 +1,7 @@
 # Architecture
 
+> Primary documentation language: Chinese · [中文](./architecture.md)
+
 This repository is not "copy a gate script into every plugin repository". It has five layers: templates, reusable workflows, policy source, enforcement, and drift patrol. Policy is written once and applies to every repository on the next CI run.
 
 ## Layers

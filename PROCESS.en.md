@@ -1,5 +1,7 @@
 # Process
 
+> Primary documentation language: Chinese · [中文](./PROCESS.md)
+
 This document defines the complete path from an idea to a release. Models must follow it in order; a red state at any step blocks the next one.
 
 ## Roles
@@ -9,7 +11,7 @@ This document defines the complete path from an idea to a release. Models must f
 
 ## The full path of one change
 
-1. Read [AGENTS.md](./AGENTS.md) and [docs/gates.md](./docs/gates.md); identify the change type and its blast radius.
+1. Read [AGENTS.en.md](./AGENTS.en.md) and [docs/gates.en.md](./docs/gates.en.md); identify the change type and its blast radius.
 2. Branch from the latest main, with a type prefix in the branch name.
 3. Change code, tests, bilingual docs or CHANGELOG in the same commits.
 4. Run the gate locally and push only when everything is green; a plugin repository uses the command published by the center and never copies scripts.

@@ -1,5 +1,7 @@
 # 发布手册
 
+> 主文档语言：中文 · [English](./release.en.md)
+
 发布只由维护者打 tag 触发插件仓的 `release.yml`；它调用中心仓的 reusable release 工作流。模型与本机都不执行 `npm publish`。仓库的 `prepublishOnly` 会调用 `dsh-ci-gate --prepublish`，在本地直接拒绝；CI 里只有 `CI=true` 且 tag 等于版本号时才放行。
 
 ## 一次性准备

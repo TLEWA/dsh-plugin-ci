@@ -1,7 +1,10 @@
 # Changelog
 
+> Primary documentation language: Chinese · [中文](./CHANGELOG.md)
+
 ## [Unreleased]
 
+- Added English mirrors for the remaining canonical docs: `docs/gates.en.md`, `docs/model-playbook.en.md`, `docs/release.en.md` and `AGENTS.en.md`. Chinese is now the primary documentation language and English editions use the `.en.md` suffix; README, PROCESS, AGENTS and CHANGELOG gained language switches, and ci.config.json registers the new docs in `pairs`/`required`.
 - Added `reusable-release-recover.yml` and a `workflow_dispatch` trigger on the release caller: when npm is already published but the GitHub Release is missing or incomplete, pass the tag to create or repair it, optionally with `dry_run`; recovery checks tag/version, main ancestry, registry `gitHead`/provenance and the local tarball integrity, and never runs `npm publish` again.
 - Fixed recovery being unable to override GitHub's reserved `GITHUB_SHA`, which made `--after-publish` compare against the workflow dispatch commit: the recovery workflow now passes `DSH_CI_EXPECTED_SHA`, and the gate prefers it before falling back to `GITHUB_SHA`.
 - Fixed `--after-publish` giving up after 15 seconds when registry propagation was slow; the default is now about 10 minutes (120 × 5 s), overridable with `DSH_CI_REGISTRY_ATTEMPTS` / `DSH_CI_REGISTRY_DELAY_MS`.
