@@ -78,6 +78,8 @@ git push origin v1.0.0
 
 A plugin repository `release.yml` calls this repository reusable release workflow, which runs preflight, the OIDC publish, post-publish verification and the GitHub Release.
 
+If npm is already published but the GitHub Release is missing or incomplete, run the release workflow manually from Actions with the tag (optionally with `dry_run`); it rebuilds only the GitHub Release and never runs `npm publish` again.
+
 ## Rules for models
 
 Models must follow [AGENTS.md](./AGENTS.md): read [PROCESS.md](./PROCESS.md) first, commit only on `feat/`, `fix/` and similar branches, treat any red gate line as blocking, and never bypass it with skips or suppressions. The rationale of every check lives in [docs/gates.md](./docs/gates.md); reacting to red checks and releasing are covered in [docs/model-playbook.md](./docs/model-playbook.md) and [docs/release.md](./docs/release.md).

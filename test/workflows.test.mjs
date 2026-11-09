@@ -11,6 +11,7 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 const REUSABLE = [
   '.github/workflows/reusable-ci.yml',
   '.github/workflows/reusable-release.yml',
+  '.github/workflows/reusable-release-recover.yml',
   '.github/workflows/reusable-drift.yml',
 ];
 const CALLERS = [
@@ -102,7 +103,31 @@ test('the canonical repository calls its own reusable workflows', () => {
   assert.ok(ci.indexOf(REMOTE) < 0, 'canonical CI must not call itself over the network');
   const release = read('.github/workflows/release.yml');
   assert.match(release, /uses: \.\/\.github\/workflows\/reusable-release\.yml/);
+  assert.match(release, /uses: \.\/\.github\/workflows\/reusable-release-recover\.yml/);
   assert.ok(release.indexOf(REMOTE) < 0, 'canonical release must not call itself over the network');
+});
+
+test('release recovery repairs a GitHub Release without publishing npm again', () => {
+  const text = read('.github/workflows/reusable-release-recover.yml');
+  assert.match(text, /workflow_call:/);
+  assert.match(text, /--after-publish/);
+  assert.match(text, /gh release create/);
+  assert.match(text, /gh release upload/);
+  assert.match(text, /--clobber/);
+  assert.match(text, /sha256sum/);
+  assert.match(text, /dist\.integrity/);
+  assert.match(text, /inputs\.dry_run/);
+  assert.match(text, /mv \.ci "\$RUNNER_TEMP\/dsh-plugin-ci"/);
+  assert.match(text, /\$RUNNER_TEMP\/dsh-plugin-ci\/scripts\/release-notes\.mjs/);
+  assert.ok(!/npm publish/.test(text), 'recovery must never publish to npm');
+  for (const file of ['templates/workflows/release.yml', '.github/workflows/release.yml']) {
+    const caller = read(file);
+    assert.match(caller, /workflow_dispatch:/, file + ' needs a manual recovery trigger');
+    assert.match(caller, /reusable-release-recover\.yml/, file + ' must call the recovery workflow');
+    assert.match(caller, /inputs\.tag/, file + ' must pass the tag');
+    assert.match(caller, /inputs\.dry_run/, file + ' must pass dry_run');
+    assert.match(caller, /if: github\.event_name == 'workflow_dispatch'/, file + ' must gate recovery on the manual trigger');
+  }
 });
 
 test('the canonical release keeps npm publishing behind release.publish and uploads assets', () => {

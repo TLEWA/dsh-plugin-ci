@@ -42,6 +42,7 @@ git switch -c feat/my-change
 1. 在 `release/x.y.z` 分支上改版本号，同时在两份 CHANGELOG 写同一个版本小节。
 2. 合并进 main 后由人打 tag，tag 必须等于版本号。
 3. caller 的 `release.yml` 调用中心仓 reusable release 工作流，完成 npm 发布、GitHub Release 与发布后核对。
+4. 如果 npm 版本已存在而 GitHub Release 缺失或资产不全，在 Actions 手动运行 `release.yml` 并输入 tag；恢复只重建 GitHub Release，不会再次 `npm publish`。
 
 ```bash
 git tag v1.0.0
