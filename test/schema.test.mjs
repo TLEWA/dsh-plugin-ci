@@ -45,5 +45,15 @@ test('the draft-07 schema uses draft-07 tuple syntax', () => {
 
 test('the canonical config wires all bilingual docs', () => {
   const pairs = canonical.docs.pairs.map((p) => p[0]);
-  for (const p of ['README.md', 'PROCESS.md', 'CHANGELOG.md', 'docs/architecture.md']) assert.ok(pairs.indexOf(p) >= 0, 'missing pair ' + p);
+  const expected = [
+    'README.md',
+    'PROCESS.md',
+    'AGENTS.md',
+    'CHANGELOG.md',
+    'docs/architecture.md',
+    'docs/gates.md',
+    'docs/model-playbook.md',
+    'docs/release.md'
+  ];
+  for (const p of expected) assert.ok(pairs.indexOf(p) >= 0, 'missing pair ' + p);
 });

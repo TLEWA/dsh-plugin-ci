@@ -1,5 +1,7 @@
 # AGENTS.md
 
+> 主文档语言：中文 · [English](./AGENTS.en.md)
+
 本文件是给模型的工作准则，与 [PROCESS.md](./PROCESS.md) 同时生效；两者冲突时以更严格的一条为准。
 
 ## 必须

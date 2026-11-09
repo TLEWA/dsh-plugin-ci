@@ -26,6 +26,22 @@
       [
         "docs/architecture.md",
         "docs/architecture.en.md"
+      ],
+      [
+        "AGENTS.md",
+        "AGENTS.en.md"
+      ],
+      [
+        "docs/gates.md",
+        "docs/gates.en.md"
+      ],
+      [
+        "docs/model-playbook.md",
+        "docs/model-playbook.en.md"
+      ],
+      [
+        "docs/release.md",
+        "docs/release.en.md"
       ]
     ],
     "required": [
@@ -36,12 +52,16 @@
       "CHANGELOG.md",
       "CHANGELOG.en.md",
       "AGENTS.md",
+      "AGENTS.en.md",
       "LICENSE",
       ".github/PULL_REQUEST_TEMPLATE.md",
       ".github/workflows/ci.yml",
       "docs/gates.md",
+      "docs/gates.en.md",
       "docs/model-playbook.md",
+      "docs/model-playbook.en.md",
       "docs/release.md",
+      "docs/release.en.md",
       "docs/architecture.md",
       "docs/architecture.en.md"
     ],

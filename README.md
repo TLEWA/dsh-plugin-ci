@@ -1,5 +1,7 @@
 # dsh-plugin-ci
 
+> 主文档语言：中文 · [English](./README.en.md)
+
 DSH 插件仓库共用的严格 CI / PR 策略仓。它把「怎么改、怎么测、怎么发版」写成可执行检查，模型只能按流程提交。
 
 ## 这是什么
@@ -50,6 +52,20 @@ npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --json
 ```
 
 在本仓开发时直接运行 `node scripts/ci-gate.mjs`；在 CI 中则是 `node .ci/scripts/ci-gate.mjs`，检查的始终是调用方工作区。
+
+## 文档
+
+主文档为中文；英文版使用 `.en.md` 后缀，与中文版逐节对应。两边的标题层级与代码块命令必须完全一致。
+
+| 主题 | 中文（主文档） | English |
+| --- | --- | --- |
+| 协作流程 | [PROCESS.md](./PROCESS.md) | [PROCESS.en.md](./PROCESS.en.md) |
+| 架构 | [docs/architecture.md](./docs/architecture.md) | [docs/architecture.en.md](./docs/architecture.en.md) |
+| 检查动机 | [docs/gates.md](./docs/gates.md) | [docs/gates.en.md](./docs/gates.en.md) |
+| 模型手册 | [docs/model-playbook.md](./docs/model-playbook.md) | [docs/model-playbook.en.md](./docs/model-playbook.en.md) |
+| 发布手册 | [docs/release.md](./docs/release.md) | [docs/release.en.md](./docs/release.en.md) |
+| 模型准则 | [AGENTS.md](./AGENTS.md) | [AGENTS.en.md](./AGENTS.en.md) |
+| 更新日志 | [CHANGELOG.md](./CHANGELOG.md) | [CHANGELOG.en.md](./CHANGELOG.en.md) |
 
 ## 仓库结构
 

@@ -1,5 +1,7 @@
 # 模型工作手册
 
+> 主文档语言：中文 · [English](./model-playbook.en.md)
+
 本仓的约束是机器执行的：`AGENTS.md` 写死的规则由 `scripts/ci-gate.mjs` 逐条检查，PR 里的 `guard` 检查会把偷懒直接变成红色。本文说明模型在红项面前应该怎么想、怎么做。
 
 ## 角色边界

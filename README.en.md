@@ -1,5 +1,7 @@
 # dsh-plugin-ci
 
+> Primary documentation language: Chinese · [中文](./README.md)
+
 The strict CI / PR policy repository shared by the TLEWA DSH plugin repositories. It turns "how to change, how to test, how to release" into executable checks, so a model can only ship through the process.
 
 ## What this is
@@ -51,6 +53,20 @@ npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --json
 
 Inside this repository run `node scripts/ci-gate.mjs`; in CI the command is `node .ci/scripts/ci-gate.mjs`, and it always inspects the caller workspace.
 
+## Documentation
+
+The primary documentation is Chinese; English editions use the `.en.md` suffix and mirror the Chinese version section by section. Heading levels and code-block commands must be identical on both sides.
+
+| Topic | Chinese (primary) | English |
+| --- | --- | --- |
+| Process | [PROCESS.md](./PROCESS.md) | [PROCESS.en.md](./PROCESS.en.md) |
+| Architecture | [docs/architecture.md](./docs/architecture.md) | [docs/architecture.en.md](./docs/architecture.en.md) |
+| Check rationale | [docs/gates.md](./docs/gates.md) | [docs/gates.en.md](./docs/gates.en.md) |
+| Model playbook | [docs/model-playbook.md](./docs/model-playbook.md) | [docs/model-playbook.en.md](./docs/model-playbook.en.md) |
+| Release handbook | [docs/release.md](./docs/release.md) | [docs/release.en.md](./docs/release.en.md) |
+| Model policy | [AGENTS.md](./AGENTS.md) | [AGENTS.en.md](./AGENTS.en.md) |
+| Changelog | [CHANGELOG.md](./CHANGELOG.md) | [CHANGELOG.en.md](./CHANGELOG.en.md) |
+
 ## Repository layout
 
 | Path | Purpose |
@@ -82,7 +98,7 @@ If npm is already published but the GitHub Release is missing or incomplete, run
 
 ## Rules for models
 
-Models must follow [AGENTS.md](./AGENTS.md): read [PROCESS.md](./PROCESS.md) first, commit only on `feat/`, `fix/` and similar branches, treat any red gate line as blocking, and never bypass it with skips or suppressions. The rationale of every check lives in [docs/gates.md](./docs/gates.md); reacting to red checks and releasing are covered in [docs/model-playbook.md](./docs/model-playbook.md) and [docs/release.md](./docs/release.md).
+Models must follow [AGENTS.en.md](./AGENTS.en.md): read [PROCESS.en.md](./PROCESS.en.md) first, commit only on `feat/`, `fix/` and similar branches, treat any red gate line as blocking, and never bypass it with skips or suppressions. The rationale of every check lives in [docs/gates.en.md](./docs/gates.en.md); reacting to red checks and releasing are covered in [docs/model-playbook.en.md](./docs/model-playbook.en.md) and [docs/release.en.md](./docs/release.en.md).
 
 ## License
 

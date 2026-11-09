@@ -1,0 +1,37 @@
+# AGENTS.md
+
+> Primary documentation language: Chinese · [中文](./AGENTS.md)
+
+This file is the working policy for models and applies together with [PROCESS.en.md](./PROCESS.en.md); when the two conflict, the stricter rule wins.
+
+## Must
+
+- Before starting, read `PROCESS.en.md`, `docs/gates.en.md` and `docs/architecture.en.md`; identify the change type and its blast radius.
+- Work only on branches with an allowed prefix; one PR does one thing.
+- Run `node scripts/ci-gate.mjs` locally before committing; push only when it is green.
+- Change tests when behavior changes; update both the Chinese and English docs and the CHANGELOG when user-visible content changes.
+- When changing the gate, schema, rulesets or reusable workflows, explain the impact and include tests in the PR.
+- When CI fails, read the `fix:` hint on each line and fix the root cause; if it cannot be fixed, document every attempt in the PR and hand it to a human.
+
+## Prohibited
+
+- Copying `ci-gate.mjs` or a reusable workflow into a plugin repository (the center is reused through `@v1`).
+- Changing a caller pin from `@v1` to `@main`, or deleting a caller workflow.
+- Adding `.only`, `.skip`, `@ts-ignore`, `eslint-disable` or similar skips or suppressions.
+- Adding `ci-change` or `human-approved` labels to a PR yourself.
+- Running `npm publish` locally, or force-pushing main.
+- Deleting or rewriting required checklist items in the PR template.
+
+## Common commands
+
+```bash
+node scripts/ci-gate.mjs
+node scripts/ci-gate.mjs --only=manifest
+node scripts/ci-gate.mjs --json
+```
+
+## Delivery standard
+
+1. verify is fully green, and every PR template item is ticked.
+2. The Chinese and English docs have one-to-one headings, and code-block commands are identical.
+3. The CHANGELOG has an entry for this version that states what changed and what it means for users.
