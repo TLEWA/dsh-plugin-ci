@@ -42,6 +42,7 @@ git switch -c feat/my-change
 1. Bump the version on a `release/x.y.z` branch and add the same version section to both CHANGELOG files.
 2. After it lands on main, a human creates the tag; the tag must equal the version.
 3. The caller `release.yml` invokes the center reusable release workflow, which publishes to npm, creates the GitHub Release and verifies the result.
+4. If the npm version exists but the GitHub Release is missing or incomplete, run `release.yml` manually from Actions with the tag; recovery rebuilds only the GitHub Release and never runs `npm publish` again.
 
 ```bash
 git tag v1.0.0

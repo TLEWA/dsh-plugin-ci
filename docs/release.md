@@ -43,6 +43,17 @@ git push origin v<version>
 - after-publish 失败：先看日志里的 registry 状态与等待时长，可能只是传播慢；若包已可读但 gitHead 不一致，说明发布的提交与 tag 不一致，立即停止后续操作，人工核对 npm 上的 tarball 与 git 历史。
 - 已发布的版本不可重发：提升版本号，重新走一遍流程。
 
+## 发布恢复
+
+如果 npm 上版本已经存在，但 GitHub Release 没创建、资产缺失或 notes 不对，不要重跑 tag 发布，也不要在本机 npm publish；在 Actions 里手动运行插件仓的 release 工作流：
+
+```bash
+gh workflow run release.yml --ref main -f tag=v1.0.6 -f dry_run=true
+gh workflow run release.yml --ref main -f tag=v1.0.6
+```
+
+恢复流程会 checkout tag、核对 `package.json` 版本、要求 tag 是 `origin/main` 的祖先、用 `--after-publish` 核对 registry 的 `gitHead` 与 provenance、重新打包并比对 `dist.integrity`，然后创建或更新 GitHub Release（资产用 `--clobber` 覆盖）。`dry_run=true` 只构建并把资产上传到 workflow artifact，不改 GitHub Release；恢复流程绝不执行 `npm publish`。
+
 ## 禁止
 
 - 本机 `npm publish`（包括任何发布命令）。

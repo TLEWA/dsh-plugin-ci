@@ -78,6 +78,8 @@ git push origin v1.0.0
 
 插件仓的 `release.yml` 调用本仓的 reusable release 工作流，完成预检、OIDC 发布、发布后核对与 GitHub Release。
 
+如果 npm 已发布但 GitHub Release 缺失或资产不全，在 Actions 手动运行 release 工作流，输入 tag（可先勾 `dry_run`）补建或修复；它只重建 GitHub Release，不会再次 `npm publish`。
+
 ## 给模型的工作准则
 
 模型必须遵守 [AGENTS.md](./AGENTS.md)：先读 [PROCESS.md](./PROCESS.md)，只在 `feat/`、`fix/` 等分支提交，把 CI 红项当作阻断，不得用跳过或压制绕过。每条检查的动机见 [docs/gates.md](./docs/gates.md)，红项处理与发布见 [docs/model-playbook.md](./docs/model-playbook.md)、[docs/release.md](./docs/release.md)。

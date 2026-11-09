@@ -1,0 +1,149 @@
+name: reusable-release-recover
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to recover (for example v1.0.6)
+        type: string
+        required: true
+      dry_run:
+        description: Build and verify only; do not create or update the GitHub Release
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate the input tag
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "tag must look like v1.2.3: $TAG" >&2
+            exit 1
+          fi
+
+      - name: Check out the calling repository at the release tag
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Check out the canonical release tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository || github.repository }}
+          ref: ${{ job.workflow_sha || github.sha }}
+          path: .ci
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify the tag, version and main ancestry
+        id: release
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="${TAG#v}"
+          PKG_VERSION="$(node -p 'require("./package.json").version')"
+          if [ "$VERSION" != "$PKG_VERSION" ]; then
+            echo "tag $TAG does not match package.json version $PKG_VERSION" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "tag $TAG is not an ancestor of origin/main" >&2
+            exit 1
+          fi
+          SHA="$(git rev-parse HEAD)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the npm release
+        env:
+          GITHUB_SHA: ${{ steps.release.outputs.sha }}
+        run: node .ci/scripts/ci-gate.mjs --after-publish
+
+      - name: Move the canonical tooling out of the package tree
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/dsh-plugin-ci"
+          mv .ci "$RUNNER_TEMP/dsh-plugin-ci"
+
+      - name: Build the release assets
+        id: assets
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          npm pack --ignore-scripts
+          PACKED="$(ls -t ./*.tgz | head -n 1)"
+          mv "$PACKED" "${VERSION}.tgz"
+          PREFIX="$(node -p 'require("./package.json").name.split("/").pop()')"
+          cp "${VERSION}.tgz" "${PREFIX}-${VERSION}.tgz"
+          sha256sum *.tgz > SHA256SUMS
+          echo "tarball=${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+
+      - name: Check the packed tarball against the registry
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          NAME="$(node -p 'require("./package.json").name')"
+          LOCAL="sha512-$(node -e 'const fs=require("fs"),crypto=require("crypto");const b=fs.readFileSync(process.argv[1]);process.stdout.write(crypto.createHash("sha512").update(b).digest("base64"))' "${VERSION}.tgz")"
+          REMOTE="$(npm view "${NAME}@${VERSION}" dist.integrity --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s)))')"
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "packed tarball does not match the published artifact" >&2
+            echo "local:  $LOCAL" >&2
+            echo "remote: $REMOTE" >&2
+            exit 1
+          fi
+          echo "packed tarball matches $REMOTE"
+
+      - name: Build the bilingual release notes
+        run: node "$RUNNER_TEMP/dsh-plugin-ci/scripts/release-notes.mjs" --out .release-notes.md
+
+      - name: Show the recovery plan
+        if: ${{ inputs.dry_run }}
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          echo "dry run: would create or update GitHub Release $TAG"
+          echo "dry run: assets are attached to this workflow run"
+
+      - name: Create or repair the GitHub Release
+        if: ${{ !inputs.dry_run }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file .release-notes.md
+            gh release upload "$TAG" ./*.tgz SHA256SUMS --clobber
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file .release-notes.md ./*.tgz SHA256SUMS
+          fi
+
+      - name: Upload the recovery assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-recover-${{ inputs.tag }}
+          path: |
+            .release-notes.md
+            *.tgz
+            SHA256SUMS
+          if-no-files-found: ignore
