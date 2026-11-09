@@ -27,21 +27,19 @@ DSH plugins that are not wired to the canonical CI are out of scope, even when t
 | [dsh-sidebar-organizer](https://github.com/TLEWA/dsh-sidebar-organizer) · [npm](https://www.npmjs.com/package/dsh-sidebar-organizer) | Long-press drag to reorder and tuck DSH panels, toolbars and menus across seven regions, with importable and exportable layouts. | `npm run build` → `lib` (git-diff); CI does not run tests (`test: null`) |
 | [dsh-sidebar-row-menu](https://github.com/TLEWA/dsh-sidebar-row-menu) · [npm](https://www.npmjs.com/package/dsh-sidebar-row-menu) | Adds workspace-row and session-row context menus to the DSH sidebar, including open-with, more-actions and archive cleanup. | `npm run build:client` → `lib` (git-diff); `npm test` |
 | [dsh-utf8-output](https://github.com/TLEWA/dsh-utf8-output) · [npm](https://www.npmjs.com/package/dsh-utf8-output) | Fixes GBK/CP936/CP932 mojibake from DSH subprocess output on Windows by re-decoding the bytes before they reach the agent. | No build; `node test/run.mjs` |
-| [dsh-ptc-noargs](https://github.com/TLEWA/dsh-ptc-noargs) | Fixes rejected argument-less tool calls in PTC `run_code`: injects a one-line prelude before TypeScript function-body programs and normalizes an omitted or undefined first argument to `{}`. | No build; `npm test` |
-
-> dsh-ptc-noargs is wired for release, but its npm package has not been published yet; add the npm link after the first tag release.
+| [dsh-ptc-noargs](https://github.com/TLEWA/dsh-ptc-noargs) · [npm](https://www.npmjs.com/package/dsh-ptc-noargs) | Fixes rejected argument-less tool calls in PTC `run_code`: injects a one-line prelude before TypeScript function-body programs and normalizes an omitted or undefined first argument to `{}`. | No build; `npm test` |
 
 ## Shared wiring
 
 - The repositories in the index pin `@v1`; after a new major release of the canonical repository, `reusable-drift.yml` reports stale pins.
 - The CI matrix is Ubuntu / Windows × Node 20 / 22 / 24, and the only required check is `ci / ci-ok`.
 - Releases are tag-only: `release.yml` calls `reusable-release.yml@v1`, which runs preflight, npm publish, post-publish verification and the GitHub Release.
-- Publishing repositories in the index are configured to publish npm packages with provenance; dsh-ptc-noargs awaits its first tag release. Every release caller uses `with: use-token: true` with the repository secret `NPM_TOKEN` instead of OIDC.
+- Publishing repositories in the index are configured to publish npm packages with provenance. Every release caller uses `with: use-token: true` with the repository secret `NPM_TOKEN` instead of OIDC.
 - Local publishing is blocked by `prepublishOnly` calling `dsh-ci-gate --prepublish`; do not run `npm publish` directly.
 
 ## Maintenance
 
-- When adding a plugin, update this page and the README documentation table in the same adoption PR; remove entries when a repository is renamed or retired.
+- When adding a plugin, update this page, the README documentation table, and every other plugin README's cross-index in the same adoption PR; remove entries when a repository is renamed or retired.
 - This page records wiring, not plugin versions. Versions live in each repository's `package.json` and on npm, so the index does not drift with every release.
 - Build and test commands come from each repository's `ci.config.json`; update this page when those commands change.
 - To check whether a repository still qualifies, inspect its `ci.config.json` and both caller workflows.
