@@ -2,8 +2,9 @@
 
 > 主文档语言：中文 · [English](./CHANGELOG.en.md)
 
-## [Unreleased]
+## [1.0.1] - 2026-11-10
 
+- 发布手册补充可移动 `v1` tag 的推进步骤；本次发布把 `v1` 指向 v1.0.1 的发布提交，插件仓的 `@v1` 调用随之更新。
 - 补齐 canonical 文档的英文镜像：新增 `docs/gates.en.md`、`docs/model-playbook.en.md`、`docs/release.en.md` 与 `AGENTS.en.md`，将中文确立为主文档语言、英文版统一使用 `.en.md` 后缀；README、PROCESS、AGENTS、CHANGELOG 增加语言切换，ci.config.json 把新增文档纳入 `pairs`/`required`。
 - 新增 `reusable-release-recover.yml` 与 release caller 的 `workflow_dispatch`：npm 已发布但 GitHub Release 缺失或资产不全时，输入 tag 补建/修复，可选 `dry_run`；恢复前核对 tag/version、main 祖先、registry `gitHead`/provenance 与本地打包 integrity，绝不重新 `npm publish`。
 - 修复恢复流程无法覆盖 GitHub 保留的 `GITHUB_SHA`，导致 `--after-publish` 误判发布提交：workflow 改用 `DSH_CI_EXPECTED_SHA`，gate 优先读取它并回退到 `GITHUB_SHA`。

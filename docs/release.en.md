@@ -29,6 +29,12 @@ git push origin v<version>
 ```
 
 5. Watch `release.yml`: preflight → (when `release.publish=true`) `npm publish --provenance` → post-publish verification → GitHub Release. When `release.publish=false`, it creates only the GitHub Release and does not touch npm.
+6. After the release succeeds, advance the moving `v1` tag to the same release commit so plugin repositories can call `@v1`:
+
+```bash
+git tag -f -a v1 -m "dsh-plugin-ci v1" v<version>^{}
+git push origin v1 --force
+```
 
 ## What the reusable release does
 
