@@ -2,8 +2,9 @@
 
 > Primary documentation language: Chinese · [中文](./CHANGELOG.md)
 
-## [Unreleased]
+## [1.0.1] - 2026-11-10
 
+- The release handbook now documents advancing the moving `v1` tag; this release points `v1` at the v1.0.1 release commit so plugin repositories calling `@v1` pick it up.
 - Added English mirrors for the remaining canonical docs: `docs/gates.en.md`, `docs/model-playbook.en.md`, `docs/release.en.md` and `AGENTS.en.md`. Chinese is now the primary documentation language and English editions use the `.en.md` suffix; README, PROCESS, AGENTS and CHANGELOG gained language switches, and ci.config.json registers the new docs in `pairs`/`required`.
 - Added `reusable-release-recover.yml` and a `workflow_dispatch` trigger on the release caller: when npm is already published but the GitHub Release is missing or incomplete, pass the tag to create or repair it, optionally with `dry_run`; recovery checks tag/version, main ancestry, registry `gitHead`/provenance and the local tarball integrity, and never runs `npm publish` again.
 - Fixed recovery being unable to override GitHub's reserved `GITHUB_SHA`, which made `--after-publish` compare against the workflow dispatch commit: the recovery workflow now passes `DSH_CI_EXPECTED_SHA`, and the gate prefers it before falling back to `GITHUB_SHA`.

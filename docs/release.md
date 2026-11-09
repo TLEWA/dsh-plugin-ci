@@ -29,6 +29,12 @@ git push origin v<version>
 ```
 
 5. 观察 `release.yml`：preflight →（`release.publish=true` 时）`npm publish --provenance` → 发布后校验 → GitHub Release。`release.publish=false` 时只创建 GitHub Release，不碰 npm。
+6. 发布成功后，把可移动的 `v1` 指向同一个发布提交，供插件仓的 `@v1` 调用：
+
+```bash
+git tag -f -a v1 -m "dsh-plugin-ci v1" v<version>^{}
+git push origin v1 --force
+```
 
 ## reusable release 做了什么
 
