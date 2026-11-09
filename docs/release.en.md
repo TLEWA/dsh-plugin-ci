@@ -8,7 +8,7 @@ A release happens only when a maintainer pushes a tag that triggers the plugin r
 
 1. npm, choose one:
    - Preferred: trusted publishing. In the package settings on npmjs.com, bind the GitHub repository and the caller workflow filename `release.yml`; CI publishes with OIDC and needs no long-lived token.
-   - Compatibility path: store `NPM_TOKEN` in the repository secrets (an automation token that can bypass 2FA), and set `use-token: true` in the caller.
+   - Compatibility path: store `NPM_TOKEN` in the repository secrets (an automation token that can bypass 2FA), and set `use-token: true` in the caller; `dsh-ci-init --npm-token` writes it, and an already wired repository can rerun that command.
 2. GitHub:
    - Keep the caller workflow `permissions` at `contents: write` and `id-token: write`; the reusable workflow declares the same permissions.
    - Apply `rulesets/main.json` to `main` and `rulesets/tags-v.json` to `v*.*.*`; moving tags such as `v1` are not protected.
