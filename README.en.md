@@ -43,6 +43,12 @@ The gate has three modes; any failure exits with code 1:
 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init
 ```
 
+When publishing with a repository-level `NPM_TOKEN` instead of OIDC, add `--npm-token`; the initializer writes `with: use-token: true` into the release caller.
+
+```bash
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init --npm-token
+```
+
 ## Local commands
 
 ```bash

@@ -8,7 +8,7 @@
 
 1. npm 侧二选一：
    - 首选 trusted publishing：在 npmjs.com 的包设置里绑定 GitHub 仓库与调用方 workflow 文件名 `release.yml`，CI 用 OIDC 发布，不需要长期 token。
-   - 兼容方式：在仓库 secrets 里放 `NPM_TOKEN`（automation token，需能绕过 2FA），并在 caller 里设置 `use-token: true`。
+   - 兼容方式：在仓库 secrets 里放 `NPM_TOKEN`（automation token，需能绕过 2FA），并在 caller 里设置 `use-token: true`；`dsh-ci-init --npm-token` 会自动写入，已有仓库也可重跑该命令。
 2. GitHub 侧：
    - caller workflow 的 `permissions` 保持 `contents: write` 与 `id-token: write`；reusable workflow 已声明同样的权限。
    - `main` 应用 `rulesets/main.json`，`v*.*.*` 应用 `rulesets/tags-v.json`；`v1` 这类可移动 tag 不保护。

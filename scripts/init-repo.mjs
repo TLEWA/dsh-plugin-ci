@@ -3,11 +3,14 @@
  * init-repo.mjs - wire a plugin repository to the canonical reusable workflows.
  *
  *   node <canonical>/scripts/init-repo.mjs
+ *   node <canonical>/scripts/init-repo.mjs --npm-token
  *   node <canonical>/scripts/init-repo.mjs --full --force
  *
  * Run with cwd = the plugin repository. Writes the thin caller workflows and
  * ci.config.json, adds .ci/ to .gitignore, and (with --full) copies the PR
- * template and AGENTS.md. Never copies the gate script itself.
+ * template and AGENTS.md. --npm-token adds with.use-token to the release
+ * caller for repositories that publish with NPM_TOKEN instead of OIDC.
+ * Never copies the gate script itself.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -18,6 +21,7 @@ const TEMPLATES = join(HERE, '..', 'templates');
 const flags = process.argv.slice(2);
 const force = flags.includes('--force');
 const full = flags.includes('--full');
+const npmToken = flags.includes('--npm-token');
 
 function copy(rel, dest) {
   const to = join(process.cwd(), dest || rel);
@@ -30,10 +34,46 @@ function copy(rel, dest) {
   console.log('write  ' + dest);
 }
 
+function enableTokenFallback(dest) {
+  const path = join(process.cwd(), dest);
+  if (!existsSync(path)) return;
+  const lines = readFileSync(path, 'utf8').split(/\r?\n/);
+  const usesIndex = lines.findIndex((line) => line.includes('uses: TLEWA/dsh-plugin-ci/.github/workflows/reusable-release.yml@'));
+  if (usesIndex < 0) {
+    console.log('warn   ' + dest + ' does not call reusable-release.yml; set use-token manually');
+    return;
+  }
+  const secretsIndex = lines.findIndex((line, i) => i > usesIndex && /^\s*secrets:\s*inherit\s*$/.test(line));
+  if (secretsIndex < 0) {
+    console.log('warn   ' + dest + ' has no secrets: inherit after reusable-release; set use-token manually');
+    return;
+  }
+  const releaseBlock = lines.slice(usesIndex, secretsIndex);
+  if (releaseBlock.some((line) => /^\s+use-token:\s*true\s*$/.test(line))) {
+    console.log('skip   ' + dest + ' (use-token already enabled)');
+    return;
+  }
+  if (releaseBlock.some((line) => /^\s+use-token:/.test(line))) {
+    console.log('warn   ' + dest + ' already has a use-token entry; set it to true manually');
+    return;
+  }
+  const withIndex = lines.findIndex((line, i) => i > usesIndex && i < secretsIndex && /^\s*with:\s*$/.test(line));
+  if (withIndex >= 0) {
+    const indent = (lines[withIndex].match(/^\s*/) || [''])[0];
+    lines.splice(withIndex + 1, 0, indent + '  use-token: true');
+  } else {
+    const indent = (lines[usesIndex].match(/^\s*/) || [''])[0];
+    lines.splice(secretsIndex, 0, indent + 'with:', indent + '  use-token: true');
+  }
+  writeFileSync(path, lines.join('\n'));
+  console.log('write  ' + dest + ' (+ with.use-token)');
+}
+
 mkdirSync(join(process.cwd(), '.github', 'workflows'), { recursive: true });
 copy('workflows/ci.yml', '.github/workflows/ci.yml');
 copy('workflows/drift.yml', '.github/workflows/drift.yml');
 copy('workflows/release.yml', '.github/workflows/release.yml');
+if (npmToken) enableTokenFallback('.github/workflows/release.yml');
 const pkgPath = join(process.cwd(), 'package.json');
 if (existsSync(pkgPath)) {
   try {

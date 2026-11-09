@@ -4,7 +4,7 @@
   "version": 1,
   "build": null,
   "typecheck": null,
-  "test": "node --test test/gate.test.mjs test/workflows.test.mjs test/rulesets.test.mjs test/schema.test.mjs test/release-notes.test.mjs",
+  "test": "node --test test/gate.test.mjs test/init-repo.test.mjs test/workflows.test.mjs test/rulesets.test.mjs test/schema.test.mjs test/release-notes.test.mjs",
   "testGlobs": [
     "test/**/*.test.mjs"
   ],

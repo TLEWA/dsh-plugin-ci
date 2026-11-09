@@ -2,6 +2,10 @@
 
 > Primary documentation language: Chinese · [中文](./CHANGELOG.md)
 
+## [Unreleased]
+
+- `dsh-ci-init` now accepts `--npm-token`: it writes `with: use-token: true` under the `reusable-release.yml` call, patches an existing caller, and is idempotent; OIDC remains the default. Added three initializer tests.
+
 ## [1.0.1] - 2026-11-10
 
 - The release handbook now documents advancing the moving `v1` tag; this release points `v1` at the v1.0.1 release commit so plugin repositories calling `@v1` pick it up.

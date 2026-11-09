@@ -2,6 +2,10 @@
 
 > 主文档语言：中文 · [English](./CHANGELOG.en.md)
 
+## [Unreleased]
+
+- `dsh-ci-init` 新增 `--npm-token`：在 release caller 的 `reusable-release.yml` 调用下写入 `with: use-token: true`，支持修补已有 caller 且可重复执行；默认仍走 OIDC。新增 3 个初始化器测试。
+
 ## [1.0.1] - 2026-11-10
 
 - 发布手册补充可移动 `v1` tag 的推进步骤；本次发布把 `v1` 指向 v1.0.1 的发布提交，插件仓的 `@v1` 调用随之更新。

@@ -43,6 +43,12 @@ DSH 插件仓库共用的严格 CI / PR 策略仓。它把「怎么改、怎么�
 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init
 ```
 
+使用仓库级 `NPM_TOKEN` 而不是 OIDC 时，加 `--npm-token`；初始化器会为 release caller 写入 `with: use-token: true`。
+
+```bash
+npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init --npm-token
+```
+
 ## 本地命令
 
 ```bash
