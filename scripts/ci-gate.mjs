@@ -870,14 +870,15 @@ async function waitForRegistry(name, version, attempts, delayMs) {
 }
 
 async function registryVersion(name, version) {
+  const base = (process.env.DSH_CI_REGISTRY_URL || 'https://registry.npmjs.org').replace(/\/+$/, '');
   let res;
   try {
-    res = await fetch('https://registry.npmjs.org/' + name + '/' + version, {
+    res = await fetch(base + '/' + name + '/' + version, {
       headers: { 'user-agent': 'dsh-plugin-ci' },
       signal: AbortSignal.timeout(20000),
     });
   } catch (e) {
-    throw new GateError('无法访问 registry.npmjs.org: ' + e.message, '检查网络；发布检查必须联网');
+    throw new GateError('无法访问 registry (' + base + '): ' + e.message, '检查网络；发布检查必须联网');
   }
   let json = null;
   if (res.status === 200) { try { json = await res.json(); } catch (e) { json = null; } }

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -114,6 +115,43 @@ function run(dir, args, extra) {
     env: Object.assign(cleanEnv(), extra || {}),
     timeout: 120000,
   });
+}
+function runAsync(dir, args, extra) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [GATE, '--json'].concat(args || []), {
+      cwd: dir,
+      env: Object.assign(cleanEnv(), extra || {}),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error('gate timed out: ' + stdout + stderr));
+    }, 30000);
+    child.on('error', (e) => { clearTimeout(timer); reject(e); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ status: code, stdout, stderr });
+    });
+  });
+}
+function fakeRegistry(handler) {
+  const server = createServer(handler);
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address();
+      resolve({ server, url: 'http://127.0.0.1:' + port });
+    });
+  });
+}
+function closeRegistry(server) {
+  return new Promise((resolve) => server.close(resolve));
 }
 function parsed(r) {
   const start = r.stdout.indexOf('{');
@@ -437,4 +475,74 @@ test('guard.g9 requires the human-approved label', () => {
   const event = join(dir, '.event.json');
   writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'done', labels: [], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
   expectFail(parsed(run(dir, ['--pr', '--only=guard.g9-human-approved'], { GITHUB_EVENT_PATH: event })), 'guard.g9-human-approved');
+});
+
+test('release.r7-post waits for registry propagation before passing', async () => {
+  const sha = 'a'.repeat(40);
+  const dir = makeRepo((d) => {
+    const c = baseConfig();
+    c.release = { publish: true, provenance: true };
+    write(d, 'ci.config.json', JSON.stringify(c));
+    const p = basePackage();
+    p.version = '1.2.3';
+    write(d, 'package.json', JSON.stringify(p));
+  });
+  let hits = 0;
+  const { server, url } = await fakeRegistry((req, res) => {
+    hits += 1;
+    if (hits < 3) {
+      res.statusCode = 404;
+      res.end('{}');
+      return;
+    }
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ gitHead: sha, dist: { integrity: 'sha512-test', attestations: { provenance: {} } } }));
+  });
+  try {
+    const r = await runAsync(dir, ['--after-publish', '--only=release.r7-post'], {
+      DSH_CI_EXPECTED_SHA: sha,
+      DSH_CI_REGISTRY_URL: url,
+      DSH_CI_REGISTRY_ATTEMPTS: '4',
+      DSH_CI_REGISTRY_DELAY_MS: '10',
+    });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const json = parsed(r);
+    assert.equal(result(json, 'release.r7-post').status, 'ok');
+    assert.equal(hits, 3);
+  } finally {
+    await closeRegistry(server);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('release.r7-post reports a registry timeout after the configured attempts', async () => {
+  const dir = makeRepo((d) => {
+    const c = baseConfig();
+    c.release = { publish: true, provenance: true };
+    write(d, 'ci.config.json', JSON.stringify(c));
+    const p = basePackage();
+    p.version = '1.2.3';
+    write(d, 'package.json', JSON.stringify(p));
+  });
+  let hits = 0;
+  const { server, url } = await fakeRegistry((req, res) => {
+    hits += 1;
+    res.statusCode = 404;
+    res.end('{}');
+  });
+  try {
+    const r = await runAsync(dir, ['--after-publish', '--only=release.r7-post'], {
+      DSH_CI_EXPECTED_SHA: 'b'.repeat(40),
+      DSH_CI_REGISTRY_URL: url,
+      DSH_CI_REGISTRY_ATTEMPTS: '3',
+      DSH_CI_REGISTRY_DELAY_MS: '400',
+    });
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    const x = expectFail(parsed(r), 'release.r7-post');
+    assert.match(x.msg, /等待约 1 秒后仍返回 404/);
+    assert.equal(hits, 3);
+  } finally {
+    await closeRegistry(server);
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

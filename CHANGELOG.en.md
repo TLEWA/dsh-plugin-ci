@@ -5,6 +5,7 @@
 - Added `reusable-release-recover.yml` and a `workflow_dispatch` trigger on the release caller: when npm is already published but the GitHub Release is missing or incomplete, pass the tag to create or repair it, optionally with `dry_run`; recovery checks tag/version, main ancestry, registry `gitHead`/provenance and the local tarball integrity, and never runs `npm publish` again.
 - Fixed recovery being unable to override GitHub's reserved `GITHUB_SHA`, which made `--after-publish` compare against the workflow dispatch commit: the recovery workflow now passes `DSH_CI_EXPECTED_SHA`, and the gate prefers it before falling back to `GITHUB_SHA`.
 - Fixed `--after-publish` giving up after 15 seconds when registry propagation was slow; the default is now about 10 minutes (120 × 5 s), overridable with `DSH_CI_REGISTRY_ATTEMPTS` / `DSH_CI_REGISTRY_DELAY_MS`.
+- Added regression tests for the `--after-publish` registry wait: a local fake registry covers the 404-then-200 path and exhausted retries, with `DSH_CI_REGISTRY_URL` available to point at the test service so acceptance no longer depends on real npm propagation timing.
 - Fixed the caller `pull_request` trigger missing `labeled` / `unlabeled`, so adding a label no longer requires a separate push; the canonical template and self-hosted workflow now match.
 - Fixed the canonical `release.yml` not calling `reusable-release.yml`, which left GitHub Releases without `*.tgz` or `SHA256SUMS` assets.
 - Fixed `apply-rulesets.mjs` including the HTTP method in the endpoint, which made `gh api` return 404.
