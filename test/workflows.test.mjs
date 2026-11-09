@@ -111,6 +111,8 @@ test('release recovery repairs a GitHub Release without publishing npm again', (
   const text = read('.github/workflows/reusable-release-recover.yml');
   assert.match(text, /workflow_call:/);
   assert.match(text, /--after-publish/);
+  assert.ok(text.includes('DSH_CI_EXPECTED_SHA: ${{ steps.release.outputs.sha }}'), 'recovery must pass the tag commit through DSH_CI_EXPECTED_SHA');
+  assert.ok(!text.includes('GITHUB_SHA:'), 'recovery must not try to override the reserved GITHUB_SHA');
   assert.match(text, /gh release create/);
   assert.match(text, /gh release upload/);
   assert.match(text, /--clobber/);
