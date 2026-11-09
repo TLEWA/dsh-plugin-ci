@@ -10,6 +10,7 @@ DSH 插件仓库共用的严格 CI / PR 策略仓。它把「怎么改、怎么�
 - 一个零依赖的 `scripts/ci-gate.mjs`，Node.js >= 20 即可运行，不安装任何包。
 - 一套薄模板：插件仓库只复制 caller workflow 与 `ci.config.json`，用 `@v1` 调用复用工作流。
 - 一条硬门禁：PR 只认唯一 required check `ci / ci-ok`，发布只认 tag。
+- 一份已接入插件的索引：[docs/plugins.md](./docs/plugins.md)。
 
 ## 五层架构
 
@@ -65,6 +66,7 @@ npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --json
 
 | 主题 | 中文（主文档） | English |
 | --- | --- | --- |
+| 已管理插件 | [docs/plugins.md](./docs/plugins.md) | [docs/plugins.en.md](./docs/plugins.en.md) |
 | 协作流程 | [PROCESS.md](./PROCESS.md) | [PROCESS.en.md](./PROCESS.en.md) |
 | 架构 | [docs/architecture.md](./docs/architecture.md) | [docs/architecture.en.md](./docs/architecture.en.md) |
 | 检查动机 | [docs/gates.md](./docs/gates.md) | [docs/gates.en.md](./docs/gates.en.md) |

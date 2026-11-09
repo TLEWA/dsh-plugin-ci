@@ -10,6 +10,7 @@
 - 只在允许前缀的分支上工作，一个 PR 只做一件事。
 - 提交前本地运行 `node scripts/ci-gate.mjs`，全绿才 push。
 - 改行为就改测试；改用户可见内容就同步中英文两份文档与 CHANGELOG。
+- 新增或退役已接入插件时，同步更新 `docs/plugins.md` 与 `docs/plugins.en.md`。
 - 改 gate、schema、ruleset 或 reusable workflow 时，在 PR 里说明影响并附测试。
 - CI 失败时读每行的 `fix:` 提示修根因；修不动就在 PR 里写清尝试过的方案并交给人。
 

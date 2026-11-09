@@ -10,6 +10,7 @@ This file is the working policy for models and applies together with [PROCESS.en
 - Work only on branches with an allowed prefix; one PR does one thing.
 - Run `node scripts/ci-gate.mjs` locally before committing; push only when it is green.
 - Change tests when behavior changes; update both the Chinese and English docs and the CHANGELOG when user-visible content changes.
+- When adding or retiring an adopted plugin, update `docs/plugins.md` and `docs/plugins.en.md` in the same change.
 - When changing the gate, schema, rulesets or reusable workflows, explain the impact and include tests in the PR.
 - When CI fails, read the `fix:` hint on each line and fix the root cause; if it cannot be fixed, document every attempt in the PR and hand it to a human.
 

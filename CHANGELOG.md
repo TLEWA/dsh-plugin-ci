@@ -2,6 +2,10 @@
 
 > 主文档语言：中文 · [English](./CHANGELOG.en.md)
 
+## [Unreleased]
+
+- 新增已管理 DSH 插件索引：`docs/plugins.md` 与 `docs/plugins.en.md`，并在 README 文档表、`ci.config.json` 的 `docs.pairs` / `docs.required` 中登记。
+
 ## [1.0.2] - 2026-11-10
 
 - `dsh-ci-init` 新增 `--npm-token`：在 release caller 的 `reusable-release.yml` 调用下写入 `with: use-token: true`，支持修补已有 caller 且可重复执行；默认仍走 OIDC。新增 3 个初始化器测试。
