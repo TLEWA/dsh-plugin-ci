@@ -32,7 +32,7 @@ git push origin v<version>
 
 1. `--release`：tag 必须等于版本号、必须是 `main` 的祖先、工作树干净、双 CHANGELOG 有该版本、verify 全绿；`release.publish=true` 时 npm 上该版本必须不存在。
 2. 读取 `ci.config.json`；只有 `release.publish=true` 才执行 `npm publish --provenance --access public`。优先用 OIDC trusted publishing；`use-token` 时回退到 `NPM_TOKEN`。工作流固定安装 npm 11.21.0，满足 trusted publishing 的最低版本。
-3. `--after-publish`：回查 npm registry 的 `gitHead` 是否等于 `GITHUB_SHA`，并检查 `dist.integrity` 与 provenance；registry 传播未完成时最多重试 6 次（每次间隔 3 秒）。
+3. `--after-publish`：回查 npm registry 的 `gitHead` 是否等于 `GITHUB_SHA`，并检查 `dist.integrity` 与 provenance；registry 传播未完成时默认最多重试 120 次（每次间隔 5 秒，约 10 分钟）；可用 DSH_CI_REGISTRY_ATTEMPTS / DSH_CI_REGISTRY_DELAY_MS 覆盖。
 4. `release-notes.mjs` 从中英 CHANGELOG 抽出版本节，用于 GitHub Release。
 5. 打包：上传 `<version>.tgz`、`<name>-<version>.tgz` 与 `SHA256SUMS`。
 
@@ -40,7 +40,7 @@ git push origin v<version>
 
 - preflight 失败：说明版本或 tag 不对，删 tag 修好后重推；npm 上没有留下任何版本。
 - publish 失败：检查 trusted publishing 绑定、`NPM_TOKEN` 权限与包名，不要改 tag 指向已发布的提交。
-- after-publish 失败：说明发布的提交与 tag 不一致，立即停止后续操作，人工核对 npm 上的 tarball 与 git 历史。
+- after-publish 失败：先看日志里的 registry 状态与等待时长，可能只是传播慢；若包已可读但 gitHead 不一致，说明发布的提交与 tag 不一致，立即停止后续操作，人工核对 npm 上的 tarball 与 git 历史。
 - 已发布的版本不可重发：提升版本号，重新走一遍流程。
 
 ## 禁止

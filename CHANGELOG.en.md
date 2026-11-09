@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Fixed `--after-publish` giving up after 15 seconds when registry propagation was slow; the default is now about 10 minutes (120 × 5 s), overridable with `DSH_CI_REGISTRY_ATTEMPTS` / `DSH_CI_REGISTRY_DELAY_MS`.
 - Fixed the caller `pull_request` trigger missing `labeled` / `unlabeled`, so adding a label no longer requires a separate push; the canonical template and self-hosted workflow now match.
 - Fixed the canonical `release.yml` not calling `reusable-release.yml`, which left GitHub Releases without `*.tgz` or `SHA256SUMS` assets.
 - Fixed `apply-rulesets.mjs` including the HTTP method in the endpoint, which made `gh api` return 404.
