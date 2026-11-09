@@ -10,6 +10,7 @@ The strict CI / PR policy repository shared by the TLEWA DSH plugin repositories
 - One zero-dependency `scripts/ci-gate.mjs` that runs on Node.js >= 20 with no packages to install.
 - Thin templates: a plugin repository copies only a caller workflow and `ci.config.json`, then calls the reusable workflows at `@v1`.
 - One hard gate: pull requests accept exactly one required check, `ci / ci-ok`; releases happen only from tags.
+- An index of adopted plugins: [docs/plugins.en.md](./docs/plugins.en.md).
 
 ## Five layers
 
@@ -65,6 +66,7 @@ The primary documentation is Chinese; English editions use the `.en.md` suffix a
 
 | Topic | Chinese (primary) | English |
 | --- | --- | --- |
+| Managed plugins | [docs/plugins.md](./docs/plugins.md) | [docs/plugins.en.md](./docs/plugins.en.md) |
 | Process | [PROCESS.md](./PROCESS.md) | [PROCESS.en.md](./PROCESS.en.md) |
 | Architecture | [docs/architecture.md](./docs/architecture.md) | [docs/architecture.en.md](./docs/architecture.en.md) |
 | Check rationale | [docs/gates.md](./docs/gates.md) | [docs/gates.en.md](./docs/gates.en.md) |

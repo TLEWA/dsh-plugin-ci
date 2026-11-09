@@ -16,6 +16,10 @@
         "README.en.md"
       ],
       [
+        "docs/plugins.md",
+        "docs/plugins.en.md"
+      ],
+      [
         "PROCESS.md",
         "PROCESS.en.md"
       ],
@@ -47,6 +51,8 @@
     "required": [
       "README.md",
       "README.en.md",
+      "docs/plugins.md",
+      "docs/plugins.en.md",
       "PROCESS.md",
       "PROCESS.en.md",
       "CHANGELOG.md",

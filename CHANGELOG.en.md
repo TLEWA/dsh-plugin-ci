@@ -2,6 +2,10 @@
 
 > Primary documentation language: Chinese · [中文](./CHANGELOG.md)
 
+## [Unreleased]
+
+- Added the managed DSH plugin index at `docs/plugins.md` and `docs/plugins.en.md`, linked from the README documentation table and registered in `ci.config.json` under `docs.pairs` / `docs.required`.
+
 ## [1.0.2] - 2026-11-10
 
 - `dsh-ci-init` now accepts `--npm-token`: it writes `with: use-token: true` under the `reusable-release.yml` call, patches an existing caller, and is idempotent; OIDC remains the default. Added three initializer tests.
