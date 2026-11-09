@@ -89,6 +89,13 @@ test('external callers pin the canonical reusable workflows at a major tag', () 
   assert.ok(release.includes("tags: ['v*.*.*']"), 'release must trigger on semver tags');
 });
 
+test('pull request CI reruns when labels change', () => {
+  for (const file of ['templates/workflows/ci.yml', '.github/workflows/ci.yml']) {
+    const text = read(file);
+    assert.match(text, /types:\s*\[[^\]]*\blabeled\b[^\]]*\bunlabeled\b[^\]]*\]/, file + ' must react to label events');
+  }
+});
+
 test('the canonical repository calls its own reusable workflows', () => {
   const ci = read('.github/workflows/ci.yml');
   assert.match(ci, /uses: \.\/\.github\/workflows\/reusable-ci\.yml/);

@@ -16,6 +16,8 @@ This document defines the complete path from an idea to a release. Models must f
 5. Open the PR, tick every template item, and explain the motivation and how it was verified.
 6. A human merges once `ci / ci-ok` is green and the labels are present; delete the branch afterwards.
 
+Labels are read from the `pull_request` event payload. After adding `ci-change` or `human-approved`, a new `pull_request` event must be produced; do not use rerun, which replays the old payload. The caller's `pull_request.types` includes `labeled` and `unlabeled`, so adding a label starts a fresh run.
+
 ```bash
 git switch main
 git pull --ff-only

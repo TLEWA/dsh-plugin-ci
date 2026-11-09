@@ -16,6 +16,8 @@
 5. 开 PR，按模板逐项勾选，写清动机与验证方式。
 6. CI 的 `ci / ci-ok` 全绿且标签齐全后由人合并；合并后删除分支。
 
+标签是在 `pull_request` 事件载荷里读取的。加完 `ci-change` / `human-approved` 后必须产生一次新的 `pull_request` 事件；不要用 rerun，它复用旧载荷。caller 的 `pull_request.types` 已包含 `labeled` 与 `unlabeled`，加标签会自动触发新的 run。
+
 ```bash
 git switch main
 git pull --ff-only
