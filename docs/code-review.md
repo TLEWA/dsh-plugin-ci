@@ -34,12 +34,16 @@ PR 就绪后，分别检查 CI 和 Codex 审阅；修复后确认审阅对应最
 
 | 仓库 | 规则版本 | 云端设置 | 验收 PR / SHA / 结果 |
 | --- | --- | --- | --- |
-| dsh-plugin-ci | v1 | 维护者已确认 | 待验收 |
-| dsh-better-choice | 待接入 | 维护者已确认 | 待验收 |
-| dsh-fastload | 待接入 | 维护者已确认 | 待验收 |
-| dsh-if | 待接入 | 维护者已确认 | 待验收 |
-| dsh-opencode-go-router | 待接入 | 维护者已确认 | 待验收 |
-| dsh-sidebar-organizer | 待接入 | 维护者已确认 | 待验收 |
-| dsh-sidebar-row-menu | 待接入 | 维护者已确认 | 待验收 |
-| dsh-utf8-output | 待接入 | 维护者已确认 | 待验收 |
-| dsh-ptc-noargs | 待接入 | 维护者已确认 | 待验收 |
+| dsh-plugin-ci | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#14](https://github.com/TLEWA/dsh-plugin-ci/pull/14) · `6cc1e34ba3cf` · 尚无 Codex 结果 |
+| dsh-better-choice | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#7](https://github.com/TLEWA/dsh-better-choice/pull/7) · `a683434de4a0` · 尚无 Codex 结果 |
+| dsh-fastload | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#8](https://github.com/TLEWA/dsh-fastload/pull/8) · `53b0487def8f` · 尚无 Codex 结果 |
+| dsh-if | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#6](https://github.com/TLEWA/dsh-if/pull/6) · `8b356999c1fb` · 尚无 Codex 结果 |
+| dsh-opencode-go-router | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#10](https://github.com/TLEWA/dsh-opencode-go-router/pull/10) · `0696f96cb319` · 尚无 Codex 结果 |
+| dsh-sidebar-organizer | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#6](https://github.com/TLEWA/dsh-sidebar-organizer/pull/6) · `02f849e67934` · 尚无 Codex 结果 |
+| dsh-sidebar-row-menu | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#6](https://github.com/TLEWA/dsh-sidebar-row-menu/pull/6) · `010f0449cc0c` · 尚无 Codex 结果 |
+| dsh-utf8-output | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#6](https://github.com/TLEWA/dsh-utf8-output/pull/6) · `fb602d4431a4` · 尚无 Codex 结果 |
+| dsh-ptc-noargs | v1 （PR 待合并） | 维护者确认触发及连接正常 | [#3](https://github.com/TLEWA/dsh-ptc-noargs/pull/3) · `1af23bfcd90c` · 尚无 Codex 结果 |
+
+本次实施快照：9 仓本地 gate 与仓规测试/构建通过；尚无可见 Codex 审阅、评论或 PR 接收反应。中心仓 #14 与 row-menu #6 已各请求一次手动补审，请求评论也没有机器人接收反应。维护者再次确认连接及仓库权限正常；原因未确定，不能声称审阅链路正常。router #10 已产生第二次实际提交，用于观察 synchronize 复审；首次审阅、新提交自动复审、手动补审及隔离回归质量场景均未完成。
+
+合并门禁仍等待维护者添加 `ci-change` 与 `human-approved`。原目录 router/organizer 的已有 AGENTS 修订已获授权并纳入各自 PR，原本机工作目录未重置；不要在 PR 合并前丢弃它们。

@@ -34,12 +34,16 @@ On 2026-11-10, the maintainer explicitly confirmed in this task that all nine re
 
 | Repository | Rule version | Cloud settings | Acceptance PR / SHA / result |
 | --- | --- | --- | --- |
-| dsh-plugin-ci | v1 | Maintainer confirmed | Pending |
-| dsh-better-choice | Pending | Maintainer confirmed | Pending |
-| dsh-fastload | Pending | Maintainer confirmed | Pending |
-| dsh-if | Pending | Maintainer confirmed | Pending |
-| dsh-opencode-go-router | Pending | Maintainer confirmed | Pending |
-| dsh-sidebar-organizer | Pending | Maintainer confirmed | Pending |
-| dsh-sidebar-row-menu | Pending | Maintainer confirmed | Pending |
-| dsh-utf8-output | Pending | Maintainer confirmed | Pending |
-| dsh-ptc-noargs | Pending | Maintainer confirmed | Pending |
+| dsh-plugin-ci | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#14](https://github.com/TLEWA/dsh-plugin-ci/pull/14) · `6cc1e34ba3cf` · No Codex result yet |
+| dsh-better-choice | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#7](https://github.com/TLEWA/dsh-better-choice/pull/7) · `a683434de4a0` · No Codex result yet |
+| dsh-fastload | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#8](https://github.com/TLEWA/dsh-fastload/pull/8) · `53b0487def8f` · No Codex result yet |
+| dsh-if | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#6](https://github.com/TLEWA/dsh-if/pull/6) · `8b356999c1fb` · No Codex result yet |
+| dsh-opencode-go-router | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#10](https://github.com/TLEWA/dsh-opencode-go-router/pull/10) · `0696f96cb319` · No Codex result yet |
+| dsh-sidebar-organizer | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#6](https://github.com/TLEWA/dsh-sidebar-organizer/pull/6) · `02f849e67934` · No Codex result yet |
+| dsh-sidebar-row-menu | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#6](https://github.com/TLEWA/dsh-sidebar-row-menu/pull/6) · `010f0449cc0c` · No Codex result yet |
+| dsh-utf8-output | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#6](https://github.com/TLEWA/dsh-utf8-output/pull/6) · `fb602d4431a4` · No Codex result yet |
+| dsh-ptc-noargs | v1 (PR pending merge) | Maintainer confirmed triggers and connection | [#3](https://github.com/TLEWA/dsh-ptc-noargs/pull/3) · `1af23bfcd90c` · No Codex result yet |
+
+Implementation snapshot: local gates and required tests/builds passed in all nine repositories. No visible Codex review, comment, or PR acknowledgement has appeared. One manual review was requested in central #14 and row-menu #6; their request comments have no bot acknowledgement either. The maintainer reconfirmed the connection and repository permissions; the cause remains undetermined and the review path is not verified. Router #10 has a second real commit to exercise synchronize rereview. Initial review, automatic rereview, manual review, and isolated regression-quality acceptance remain incomplete.
+
+Merge gates still await maintainer-added `ci-change` and `human-approved`. Existing AGENTS edits from the original router/organizer directories were explicitly authorized and included in their respective PRs. Those original working directories were not reset; do not discard them before merging.
