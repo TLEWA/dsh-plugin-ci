@@ -2,7 +2,7 @@
 
 > 主文档语言：中文 · [English](./CHANGELOG.en.md)
 
-## [Unreleased]
+## [1.0.3] - 2026-11-11
 
 - 标签变化不再新建 CI run：新增 `.github/workflows/ci-rerun.yml`，加 `ci-change` / `human-approved` 时重跑同一 commit 上已有的 `ci` run。重跑只是原 run 的新 attempt，check run 原位替换，同一 SHA 只保留一套 check suite，修复“建 PR 再加标签”产生两次 CI、ruleset 判 `BLOCKED`、`gh pr checks` 却全绿的问题；caller 的 `ci.yml` 不再监听 `labeled` / `unlabeled`。
 
