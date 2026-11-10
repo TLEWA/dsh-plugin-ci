@@ -2,7 +2,7 @@
 
 > 主文档语言：中文 · [English](./CHANGELOG.en.md)
 
-## [Unreleased]
+## [1.0.5] - 2026-11-11
 
 - `ci-rerun.yml` 的并发组改为串行执行（`cancel-in-progress: false`）：两个标签一起加时不再互相取消，避免同一 SHA 留下 cancelled 的 check run、把 PR 的 `mergeStateStatus` 变成 `UNSTABLE`；重复的重跑请求会被幂等跳过。
 
