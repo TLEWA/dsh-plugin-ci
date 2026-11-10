@@ -2,6 +2,10 @@
 
 > Primary documentation language: Chinese · [中文](./CHANGELOG.md)
 
+## [Unreleased]
+
+- `ci-rerun.yml` now serializes runs instead of cancelling them (`cancel-in-progress: false`): adding both labels no longer cancels one rerun, so the SHA keeps no cancelled check run and the PR does not drop to `mergeStateStatus=UNSTABLE`; repeated rerun requests are skipped idempotently.
+
 ## [1.0.4] - 2026-11-11
 
 - `ci-rerun.yml` now scopes concurrency to the job: unrelated label events never start it and therefore cannot cancel a pending or running rerun; the group is still keyed by PR number.
