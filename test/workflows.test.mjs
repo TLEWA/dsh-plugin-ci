@@ -102,6 +102,7 @@ test('label changes rerun the existing ci run instead of opening a new one', () 
     assert.match(text, /actions:\s*write/, file + ' needs actions: write to rerun a run');
     assert.match(text, /\/rerun/, file + ' must call the run rerun endpoint');
     assert.match(text, /concurrency:/, file + ' needs its own concurrency group');
+    assert.match(text, /group:\s*ci-rerun-\$\{\{\s*github\.event\.pull_request\.number\s*\}\}/, file + ' must key the group by PR number so forks with the same branch name do not cancel each other');
     assert.ok(text.indexOf('github.event.pull_request.head.sha') >= 0, file + ' must target the PR head commit');
   }
 });

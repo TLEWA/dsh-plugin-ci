@@ -10,6 +10,8 @@
 
 - 标签与 PR 描述都在 gate 运行时实时读取，作者补勾清单后重跑即可通过；CI 中读取失败时 gate 直接失败（fail closed），不再静默回退旧事件快照，避免已撤销的标签仍被放行。
 
+- `ci-rerun.yml` 的并发组改用 PR 编号（`github.event.pull_request.number`）：不同 fork 的同名源分支不再共享并发组、互相取消等待中的重跑。
+
 - `ci-rerun.yml` 使用 `pull_request_target`：fork PR 的 `pull_request` token 只读，无法请求 `actions: write`；该工作流不检出 PR 代码，只在可信上下文里调 API 重跑。
 
 - `wiring.workflows` 新增两条接线检查：缺少 `ci-rerun.yml`，或 `ci.yml` 仍监听标签事件，都会失败并给出修复提示；`dsh-ci-init` 同步生成 `ci-rerun.yml`。
