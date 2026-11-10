@@ -10,6 +10,8 @@
 
 - Labels and the PR body are read live at gate run time, so fixing the checklist and rerunning is enough; when that lookup fails in CI the gate fails closed instead of reusing the stale event snapshot, which could let a revoked label through.
 
+- `ci-rerun.yml` now scopes concurrency to the job: unrelated label events never start it and therefore cannot cancel a pending or running rerun; the group is still keyed by PR number.
+
 - `ci-rerun.yml` now keys its concurrency group by PR number (`github.event.pull_request.number`), so forks whose branches share a name no longer cancel each other's pending rerun.
 
 - `ci-rerun.yml` uses `pull_request_target`: a fork PR's `pull_request` token is read-only and cannot request `actions: write`; the workflow never checks out PR code and only calls the API from the trusted context.
