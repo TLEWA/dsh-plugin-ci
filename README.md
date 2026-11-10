@@ -111,3 +111,7 @@ git push origin v1.0.0
 ## 许可
 
 MIT，见 [LICENSE](./LICENSE)。
+
+## Codex PR 审阅
+
+云端自动审阅、公共规则、一致性检查和逐仓验收见 [审阅指南](./docs/code-review.md)。AI 提供意见，维护者最终批准并合并。

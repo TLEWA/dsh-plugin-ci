@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- Add shared Codex PR review templates, a read-only local policy check, and bilingual adoption/acceptance guidance; preserve existing CI, human approvals, and publishing.
+
 - Added the managed DSH plugin index at `docs/plugins.md` and `docs/plugins.en.md`, linked from the README documentation table and registered in `ci.config.json` under `docs.pairs` / `docs.required`.
 
 ## [1.0.2] - 2026-11-10

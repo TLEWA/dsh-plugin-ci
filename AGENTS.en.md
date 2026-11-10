@@ -36,3 +36,16 @@ node scripts/ci-gate.mjs --json
 1. verify is fully green, and every PR template item is ticked.
 2. The Chinese and English docs have one-to-one headings, and code-block commands are identical.
 3. The CHANGELOG has an entry for this version that states what changed and what it means for users.
+
+<!-- dsh-review-policy:v1:start -->
+## Code Review Rules
+
+- Report provable serious defects in Chinese, with the trigger, actual impact, and smallest relevant code location. Avoid style suggestions and mechanical checks already covered by CI. No review result does not mean approval.
+- Check host compatibility and user data boundaries: plugins must not accidentally change unrelated requests, messages, configuration, or persisted data. Respect compatibility exceptions explicitly documented by the repository.
+- Check errors, cancellation, disposal, and repeated initialization: hooks, listeners, and shared state must be cleaned up correctly. Fallbacks must not cause duplicate execution, data loss, or sensitive information leaks.
+- Reviews provide feedback only. Do not automatically fix code, add human approval labels, merge, change versions, or publish. Preserve existing CI and human approval processes.
+<!-- dsh-review-policy:v1:end -->
+
+### Central CI review focus
+
+- Check permission escalation, publishing credentials, and tag/release paths. Policy and reusable workflow changes must preserve downstream @v1 inputs, check names, and configuration contracts; never weaken global gates for one repository.
