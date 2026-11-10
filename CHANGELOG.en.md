@@ -8,6 +8,10 @@
 
 - The label gates (`guard.g5` / `guard.g9`) now read labels from the GitHub API at run time (`DSH_CI_PR_LABELS` exists only for tests), so a rerun sees a label added after the original event; added regression tests.
 
+- Labels and the PR body are read live at gate run time, so fixing the checklist and rerunning is enough; when that lookup fails in CI the gate fails closed instead of reusing the stale event snapshot, which could let a revoked label through.
+
+- `ci-rerun.yml` uses `pull_request_target`: a fork PR's `pull_request` token is read-only and cannot request `actions: write`; the workflow never checks out PR code and only calls the API from the trusted context.
+
 - `wiring.workflows` gained two wiring checks: a missing `ci-rerun.yml`, or a `ci.yml` that still listens to label events, fails with a fix hint; `dsh-ci-init` now writes `ci-rerun.yml`.
 - Add shared Codex PR review templates, a read-only local policy check, and bilingual adoption/acceptance guidance; preserve existing CI, human approvals, and publishing.
 

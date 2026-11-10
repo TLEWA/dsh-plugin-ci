@@ -4,8 +4,10 @@ name: ci-rerun
 # 原因：新建 run 会在同一个 SHA 上留下第二套 check suite，ruleset 无法确定哪套有效，
 # PR 会停在 mergeStateStatus=BLOCKED，即使 gh pr checks 看起来全绿。
 # 重跑只是原 run 的新 attempt，check run 原位替换，状态始终只有一套。
+# 用 pull_request_target 而不是 pull_request：fork PR 的 pull_request 事件只有只读 token，
+# 拿不到 actions: write 就重跑不了；本工作流不检出、不执行 PR 代码，只用 API 重跑自己仓的 run。
 on:
-  pull_request:
+  pull_request_target:
     types: [labeled, unlabeled]
 
 permissions:

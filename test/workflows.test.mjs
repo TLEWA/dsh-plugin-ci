@@ -98,6 +98,7 @@ test('label changes rerun the existing ci run instead of opening a new one', () 
   for (const file of ['templates/workflows/ci-rerun.yml', '.github/workflows/ci-rerun.yml']) {
     const text = read(file);
     assert.match(text, /types:\s*\[[^\]]*\blabeled\b[^\]]*\bunlabeled\b[^\]]*\]/, file + ' must react to label events');
+    assert.match(text, /pull_request_target:/, file + ' must run in the trusted base-branch context so fork PRs can rerun');
     assert.match(text, /actions:\s*write/, file + ' needs actions: write to rerun a run');
     assert.match(text, /\/rerun/, file + ' must call the run rerun endpoint');
     assert.match(text, /concurrency:/, file + ' needs its own concurrency group');

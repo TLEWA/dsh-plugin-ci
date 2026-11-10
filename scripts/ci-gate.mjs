@@ -434,7 +434,7 @@ check('wiring.workflows', () => {
   if (!rerun) {
     problems.push('缺少 .github/workflows/ci-rerun.yml：标签变化应重跑原 ci run，而不是新建一次 CI');
   } else {
-    if (!/pull_request:/.test(rerun) || !/types:\s*\[[^\]]*\blabeled\b/.test(rerun)) problems.push('ci-rerun.yml 必须在 pull_request 的 labeled/unlabeled 事件上运行');
+    if (!/(?:pull_request|pull_request_target):/.test(rerun) || !/types:\s*\[[^\]]*\blabeled\b/.test(rerun)) problems.push('ci-rerun.yml 必须在 pull_request 或 pull_request_target 的 labeled/unlabeled 事件上运行（fork PR 需要 pull_request_target 才有 actions: write）');
     if (!/actions:\s*write/.test(rerun)) problems.push('ci-rerun.yml 需要 permissions.actions: write 才能重跑 run');
     if (!/\/rerun/.test(rerun)) problems.push('ci-rerun.yml 必须调用 Actions 的 run rerun 接口（POST /repos/{owner}/{repo}/actions/runs/{id}/rerun）');
   }
@@ -987,50 +987,78 @@ function diffFiles() {
   return DIFF;
 }
 let LIVE_LABELS = null;
+let LIVE_BODY = null;
+let LIVE_PR_ERROR = null;
 
 /**
- * 标签以运行时的 API 结果为准，而不是触发事件里的快照。
+ * 标签与 PR 描述以运行时的 API 结果为准，而不是触发事件里的快照。
  *
- * 原因：标签门（g5/g9）需要在"事后加标签"时由同一个 run 重跑后通过，而重跑沿用
- * 原始事件 payload，payload 里的 labels 还是加标签之前的状态。读实时状态后，
- * 重跑就能看到当前标签，同一个 SHA 上只需要一套 check run。
- * 本地运行（无 token/repo）或请求失败时回退到事件快照。
+ * 原因：标签门（g5/g9）与清单门（g1）要在"事后加标签/改描述"时由同一个 run 重跑
+ * 后通过，而重跑沿用原始事件 payload。读实时状态后，重跑能看到当前的标签与描述，
+ * 同一个 SHA 上只需要一套 check run。
+ * 在 CI（有 token 与 repo）里读不到实时状态时失败，而不是退回旧快照：旧快照可能
+ * 还带着已被撤销的 human-approved，回退等于让撤销的批准继续放行。
+ * 本地运行（无 token/repo）或用 DSH_CI_PR_LABELS / DSH_CI_PR_BODY 覆盖时仍用快照。
  */
-async function loadLiveLabels() {
+async function loadLivePr() {
   if (OPTS.mode !== 'guard') return;
-  const override = process.env.DSH_CI_PR_LABELS;
-  if (override !== undefined) {
-    LIVE_LABELS = override.split(',').map((s) => s.trim()).filter(Boolean);
+  const labelOverride = process.env.DSH_CI_PR_LABELS;
+  const bodyOverride = process.env.DSH_CI_PR_BODY;
+  if (labelOverride !== undefined || bodyOverride !== undefined) {
+    if (labelOverride !== undefined) LIVE_LABELS = labelOverride.split(',').map((s) => s.trim()).filter(Boolean);
+    if (bodyOverride !== undefined) LIVE_BODY = bodyOverride;
     return;
   }
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPOSITORY;
   if (!token || !repo) return;
+  const api = (process.env.DSH_CI_PR_API_URL || 'https://api.github.com').replace(/\/+$/, '');
   try {
     const number = pr().number;
     if (!number) return;
-    const res = await fetch('https://api.github.com/repos/' + repo + '/pulls/' + number, {
+    const res = await fetch(api + '/repos/' + repo + '/pulls/' + number, {
       headers: {
         Authorization: 'Bearer ' + token,
         Accept: 'application/vnd.github+json',
         'User-Agent': 'dsh-ci-gate',
       },
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      LIVE_PR_ERROR = 'GitHub API 返回 ' + res.status;
+      return;
+    }
     const j = await res.json();
-    if (Array.isArray(j.labels)) LIVE_LABELS = j.labels.map((l) => (typeof l === 'string' ? l : l && l.name)).filter(Boolean);
+    if (!Array.isArray(j.labels)) {
+      LIVE_PR_ERROR = 'GitHub API 响应里没有 labels';
+      return;
+    }
+    LIVE_LABELS = j.labels.map((l) => (typeof l === 'string' ? l : l && l.name)).filter(Boolean);
+    if (typeof j.body === 'string') LIVE_BODY = j.body;
   } catch (e) {
+    LIVE_PR_ERROR = e && e.message ? e.message : String(e);
     if (process.env.CI_GATE_DEBUG) console.error(e);
   }
 }
 
+function assertLivePr() {
+  if (!LIVE_PR_ERROR) return;
+  throw new GateError('无法通过 GitHub API 读取 PR 当前状态（' + LIVE_PR_ERROR + '），拒绝用事件快照里的旧标签/旧描述判定',
+    '确认 workflow 给 GITHUB_TOKEN 留了 pull-requests: read，且 GitHub API 可用；恢复后重跑，不要退回旧快照放行');
+}
+
 function labelNames() {
+  assertLivePr();
   if (LIVE_LABELS) return LIVE_LABELS;
   return (pr().labels || []).map((l) => (typeof l === 'string' ? l : l.name));
 }
 
+function prBody() {
+  assertLivePr();
+  return LIVE_BODY !== null ? LIVE_BODY : (pr().body || '');
+}
+
 check('guard.g1-checklist', () => {
-  const body = pr().body || '';
+  const body = prBody();
   const tplPath = '.github/PULL_REQUEST_TEMPLATE.md';
   must(has(tplPath), '缺少 PR 模板 ' + tplPath, '从 canonical 的 templates/PULL_REQUEST_TEMPLATE.md 复制');
   const items = read(tplPath).split(/\r?\n/)
@@ -1169,7 +1197,7 @@ async function main() {
     console.log('用法: node .ci/scripts/ci-gate.mjs [--only=a,b] [--skip=c] [--json] [--release|--after-publish|--prepublish|--pr]');
     return;
   }
-  await loadLiveLabels();
+  await loadLivePr();
   for (const c of checks) {
     if (c.modes.indexOf(OPTS.mode) < 0) continue;
     if (!selected(c.id)) continue;

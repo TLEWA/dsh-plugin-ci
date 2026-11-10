@@ -512,6 +512,70 @@ test('guard.g9 reads live labels so a rerun sees the label that was just added',
   expectFail(stale, 'guard.g9-human-approved');
 });
 
+test('guard.g1 reads the live PR body so a rerun sees a fixed checklist', () => {
+  const checked = PR_TEMPLATE.replace(/- \[ \]/g, '- [x]');
+  const dir = makeRepo();
+  const base = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  write(dir, 'lib/index.js', 'export const demo = 6;\n');
+  git(dir, ['checkout', '-q', '-b', 'feat/change']);
+  commitAll(dir, 'pr change');
+  const head = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  const event = join(dir, '.event.json');
+  writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'no checklist', labels: [], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
+
+  const live = parsed(run(dir, ['--pr', '--only=guard.g1-checklist'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_BODY: checked }));
+  assert.equal(result(live, 'guard.g1-checklist').status, 'ok');
+
+  const stale = parsed(run(dir, ['--pr', '--only=guard.g1-checklist'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_BODY: 'no checklist' }));
+  expectFail(stale, 'guard.g1-checklist');
+});
+
+test('label gates fail closed when the live PR lookup fails in CI', async () => {
+  const http = await import('node:http');
+  let mode = 'ok';
+  const server = http.createServer((req, res) => {
+    if (mode === 'fail') {
+      res.statusCode = 503;
+      res.end('{"message":"unavailable"}');
+      return;
+    }
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ labels: [{ name: 'human-approved' }], body: 'done' }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  try {
+    const dir = makeRepo((d) => {
+      const c = baseConfig(); c.guards.requireHumanApprovedLabel = true;
+      write(d, 'ci.config.json', JSON.stringify(c));
+    });
+    const base = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+    write(dir, 'lib/index.js', 'export const demo = 7;\n');
+    git(dir, ['checkout', '-q', '-b', 'feat/change']);
+    commitAll(dir, 'pr change');
+    const head = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+    const event = join(dir, '.event.json');
+    writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'done', labels: ['human-approved'], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
+    const extra = {
+      GITHUB_EVENT_PATH: event,
+      GH_TOKEN: 'test-token',
+      GITHUB_REPOSITORY: 'TLEWA/demo',
+      DSH_CI_PR_API_URL: 'http://127.0.0.1:' + port,
+    };
+
+    const ok = parsed(await runAsync(dir, ['--pr', '--only=guard.g9-human-approved'], extra));
+    assert.equal(result(ok, 'guard.g9-human-approved').status, 'ok');
+
+    mode = 'fail';
+    const failed = parsed(await runAsync(dir, ['--pr', '--only=guard.g9-human-approved'], extra));
+    expectFail(failed, 'guard.g9-human-approved');
+    assert.equal(result(failed, 'guard.g9-human-approved').status, 'fail');
+    assert.match(result(failed, 'guard.g9-human-approved').msg, /无法通过 GitHub API 读取 PR 当前状态/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('release.r7-post waits for registry propagation before passing', async () => {
   const sha = 'a'.repeat(40);
   const dir = makeRepo((d) => {
