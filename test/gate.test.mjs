@@ -52,6 +52,9 @@ function baseConfig() {
 function callerCi(remote = true) {
   return ['name: ci', 'on: [pull_request, push]', 'jobs:', '  ci:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1' : './.github/workflows/reusable-ci.yml'), ''].join('\n');
 }
+function callerRerun() {
+  return ['name: ci-rerun', 'on:', '  pull_request:', '    types: [labeled, unlabeled]', 'permissions:', '  actions: write', 'jobs:', '  rerun:', '    runs-on: ubuntu-latest', '    steps:', '      - run: gh api -X POST "/repos/x/y/actions/runs/1/rerun"', ''].join('\n');
+}
 function callerDrift(remote = true) {
   return ['name: drift', 'on: workflow_dispatch', 'jobs:', '  drift:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-drift.yml@v1' : './.github/workflows/reusable-drift.yml'), ''].join('\n');
 }
@@ -89,6 +92,7 @@ function makeRepo(mutate) {
   write(dir, '.gitignore', '.ci/\nnode_modules/\n');
   write(dir, '.github/PULL_REQUEST_TEMPLATE.md', PR_TEMPLATE);
   write(dir, '.github/workflows/ci.yml', callerCi());
+  write(dir, '.github/workflows/ci-rerun.yml', callerRerun());
   write(dir, '.github/workflows/drift.yml', callerDrift());
   write(dir, '.github/workflows/release.yml', callerRelease());
   write(dir, 'test/run.test.mjs', "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('fixture', () => assert.ok(true));\n");
@@ -318,6 +322,17 @@ test('wiring fails when a caller workflow is missing', () => {
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
 });
 
+test('wiring requires a label rerun caller instead of a second ci run', () => {
+  const dir = makeRepo((d) => rmSync(join(d, '.github/workflows/ci-rerun.yml')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring rejects a ci workflow that starts a new run on label changes', () => {
+  const dir = makeRepo((d) => write(d, '.github/workflows/ci.yml',
+    callerCi().replace('on: [pull_request, push]', 'on:\n  pull_request:\n    types: [opened, labeled]\n  push:\n')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
 test('wiring fails when a gate copy is committed', () => {
   const dir = makeRepo((d) => write(d, 'scripts/ci-gate.mjs', '// copied gate\n'));
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
@@ -475,6 +490,90 @@ test('guard.g9 requires the human-approved label', () => {
   const event = join(dir, '.event.json');
   writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'done', labels: [], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
   expectFail(parsed(run(dir, ['--pr', '--only=guard.g9-human-approved'], { GITHUB_EVENT_PATH: event })), 'guard.g9-human-approved');
+});
+
+test('guard.g9 reads live labels so a rerun sees the label that was just added', () => {
+  const dir = makeRepo((d) => {
+    const c = baseConfig(); c.guards.requireHumanApprovedLabel = true;
+    write(d, 'ci.config.json', JSON.stringify(c));
+  });
+  const base = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  write(dir, 'lib/index.js', 'export const demo = 5;\n');
+  git(dir, ['checkout', '-q', '-b', 'feat/change']);
+  commitAll(dir, 'pr change');
+  const head = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  const event = join(dir, '.event.json');
+  writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'done', labels: [], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
+
+  const live = parsed(run(dir, ['--pr', '--only=guard.g9-human-approved'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_LABELS: 'ci-change,human-approved' }));
+  assert.equal(result(live, 'guard.g9-human-approved').status, 'ok');
+
+  const stale = parsed(run(dir, ['--pr', '--only=guard.g9-human-approved'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_LABELS: '' }));
+  expectFail(stale, 'guard.g9-human-approved');
+});
+
+test('guard.g1 reads the live PR body so a rerun sees a fixed checklist', () => {
+  const checked = PR_TEMPLATE.replace(/- \[ \]/g, '- [x]');
+  const dir = makeRepo();
+  const base = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  write(dir, 'lib/index.js', 'export const demo = 6;\n');
+  git(dir, ['checkout', '-q', '-b', 'feat/change']);
+  commitAll(dir, 'pr change');
+  const head = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  const event = join(dir, '.event.json');
+  writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'no checklist', labels: [], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
+
+  const live = parsed(run(dir, ['--pr', '--only=guard.g1-checklist'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_BODY: checked }));
+  assert.equal(result(live, 'guard.g1-checklist').status, 'ok');
+
+  const stale = parsed(run(dir, ['--pr', '--only=guard.g1-checklist'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_BODY: 'no checklist' }));
+  expectFail(stale, 'guard.g1-checklist');
+});
+
+test('label gates fail closed when the live PR lookup fails in CI', async () => {
+  const http = await import('node:http');
+  let mode = 'ok';
+  const server = http.createServer((req, res) => {
+    if (mode === 'fail') {
+      res.statusCode = 503;
+      res.end('{"message":"unavailable"}');
+      return;
+    }
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ labels: [{ name: 'human-approved' }], body: 'done' }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  try {
+    const dir = makeRepo((d) => {
+      const c = baseConfig(); c.guards.requireHumanApprovedLabel = true;
+      write(d, 'ci.config.json', JSON.stringify(c));
+    });
+    const base = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+    write(dir, 'lib/index.js', 'export const demo = 7;\n');
+    git(dir, ['checkout', '-q', '-b', 'feat/change']);
+    commitAll(dir, 'pr change');
+    const head = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+    const event = join(dir, '.event.json');
+    writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'done', labels: ['human-approved'], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
+    const extra = {
+      GITHUB_EVENT_PATH: event,
+      GH_TOKEN: 'test-token',
+      GITHUB_REPOSITORY: 'TLEWA/demo',
+      DSH_CI_PR_API_URL: 'http://127.0.0.1:' + port,
+    };
+
+    const ok = parsed(await runAsync(dir, ['--pr', '--only=guard.g9-human-approved'], extra));
+    assert.equal(result(ok, 'guard.g9-human-approved').status, 'ok');
+
+    mode = 'fail';
+    const failed = parsed(await runAsync(dir, ['--pr', '--only=guard.g9-human-approved'], extra));
+    expectFail(failed, 'guard.g9-human-approved');
+    assert.equal(result(failed, 'guard.g9-human-approved').status, 'fail');
+    assert.match(result(failed, 'guard.g9-human-approved').msg, /无法通过 GitHub API 读取 PR 当前状态/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test('release.r7-post waits for registry propagation before passing', async () => {

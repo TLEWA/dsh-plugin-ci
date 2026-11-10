@@ -9,7 +9,7 @@
 | 检查 | 拦什么 | 为什么 |
 | --- | --- | --- |
 | `config.schema` | 未知键、类型错误、缺字段 | 配置写错时静默失效比报错更危险 |
-| `wiring.workflows` | caller 缺失、pin 不是 `@vN`、把 gate 复制回本仓、`.ci/` 没进 `.gitignore` | 复用工作流是唯一执行入口，副本会让规则分叉 |
+| `wiring.workflows` | caller 缺失、pin 不是 `@vN`、把 gate 复制回本仓、`.ci/` 没进 `.gitignore`、缺少 `ci-rerun.yml`、`ci.yml` 仍监听 `labeled`/`unlabeled` | 复用工作流是唯一执行入口，副本会让规则分叉；标签事件若新建 run，同一 SHA 会出现两套 check suite，ruleset 判 BLOCKED |
 | `wiring.repository` | 要发布但 `package.json` 的 `repository` 与 GitHub 仓库不符 | npm provenance 与源码追溯依赖这个字段 |
 | `wiring.prepublish` | 要发布但 `prepublishOnly` 没有接 `dsh-ci-gate --prepublish` | 没有这个钩子，本机 `npm publish` 不会被拦，发布只能由 tag 触发 |
 | `manifest.name` | 包名/版本格式、仓库名不一致 | npm 与 GitHub 对不上时无法追溯 |

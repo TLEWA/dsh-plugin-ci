@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+- 标签变化不再新建 CI run：新增 `.github/workflows/ci-rerun.yml`，加 `ci-change` / `human-approved` 时重跑同一 commit 上已有的 `ci` run。重跑只是原 run 的新 attempt，check run 原位替换，同一 SHA 只保留一套 check suite，修复“建 PR 再加标签”产生两次 CI、ruleset 判 `BLOCKED`、`gh pr checks` 却全绿的问题；caller 的 `ci.yml` 不再监听 `labeled` / `unlabeled`。
+
+- 标签门（`guard.g5` / `guard.g9`）改为运行时通过 GitHub API 读取标签（`DSH_CI_PR_LABELS` 仅供测试覆盖），重跑能看到刚加的标签；新增对应回归测试。
+
+- 标签与 PR 描述都在 gate 运行时实时读取，作者补勾清单后重跑即可通过；CI 中读取失败时 gate 直接失败（fail closed），不再静默回退旧事件快照，避免已撤销的标签仍被放行。
+
+- `ci-rerun.yml` 使用 `pull_request_target`：fork PR 的 `pull_request` token 只读，无法请求 `actions: write`；该工作流不检出 PR 代码，只在可信上下文里调 API 重跑。
+
+- `wiring.workflows` 新增两条接线检查：缺少 `ci-rerun.yml`，或 `ci.yml` 仍监听标签事件，都会失败并给出修复提示；`dsh-ci-init` 同步生成 `ci-rerun.yml`。
 - 新增 Codex PR 审阅公共规则模板、只读本地一致性检查及双语接入/验收指南；保留原有 CI、人工批准与发布流程。
 
 - 新增已管理 DSH 插件索引：`docs/plugins.md` 与 `docs/plugins.en.md`，并在 README 文档表、`ci.config.json` 的 `docs.pairs` / `docs.required` 中登记。
