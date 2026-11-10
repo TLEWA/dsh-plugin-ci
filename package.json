@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-ci",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "type": "module",
   "description": "Canonical CI policy, reusable workflows and gate for the TLEWA DSH plugins",

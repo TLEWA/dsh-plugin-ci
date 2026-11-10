@@ -2,7 +2,7 @@
 
 > Primary documentation language: Chinese · [中文](./CHANGELOG.md)
 
-## [Unreleased]
+## [1.0.3] - 2026-11-11
 
 - Label changes no longer open a new CI run: a new `.github/workflows/ci-rerun.yml` reruns the existing `ci` run on the same commit when `ci-change` / `human-approved` is added. A rerun is a new attempt of the original run, its check runs are replaced in place, and the SHA keeps exactly one check suite. This fixes the "open a PR, then add labels" pattern that produced two CI runs, left the ruleset reporting `BLOCKED`, and made `gh pr checks` look green; callers no longer listen to `labeled` / `unlabeled`.
 
