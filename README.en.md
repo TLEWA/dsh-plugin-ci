@@ -111,3 +111,7 @@ Models must follow [AGENTS.en.md](./AGENTS.en.md): read [PROCESS.en.md](./PROCES
 ## License
 
 MIT, see [LICENSE](./LICENSE).
+
+## Codex PR review
+
+See the [review guide](./docs/code-review.en.md) for cloud reviews, shared rules, consistency checks, and per-repository acceptance. AI provides feedback; maintainers approve and merge.

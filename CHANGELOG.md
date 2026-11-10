@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- 新增 Codex PR 审阅公共规则模板、只读本地一致性检查及双语接入/验收指南；保留原有 CI、人工批准与发布流程。
+
 - 新增已管理 DSH 插件索引：`docs/plugins.md` 与 `docs/plugins.en.md`，并在 README 文档表、`ci.config.json` 的 `docs.pairs` / `docs.required` 中登记。
 
 ## [1.0.2] - 2026-11-10

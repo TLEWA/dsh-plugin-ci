@@ -13,7 +13,7 @@
   },
   "scripts": {
     "verify": "node scripts/ci-gate.mjs",
-    "test": "node --test test/gate.test.mjs test/init-repo.test.mjs test/workflows.test.mjs test/rulesets.test.mjs test/schema.test.mjs test/release-notes.test.mjs",
+    "test": "node --test test/gate.test.mjs test/init-repo.test.mjs test/workflows.test.mjs test/rulesets.test.mjs test/schema.test.mjs test/release-notes.test.mjs test/review-policy.test.mjs",
     "rulesets": "node scripts/apply-rulesets.mjs"
   },
   "license": "MIT"
