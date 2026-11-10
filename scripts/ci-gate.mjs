@@ -426,6 +426,18 @@ check('wiring.workflows', () => {
     const ignore = has('.gitignore') ? read('.gitignore') : '';
     if (!/^\s*\.ci\/?\s*$/m.test(ignore)) problems.push('.gitignore 缺少 .ci/ 条目（reusable workflow 会把中心仓检出到 .ci/）');
   }
+  const ciText = yamlText('.github/workflows/ci.yml') || '';
+  if (/types:\s*\[[^\]]*\blabeled\b/.test(ciText)) {
+    problems.push('ci.yml 不应监听 pull_request 的 labeled/unlabeled：加标签会新建第二次 run，同一 SHA 上留下两套 check suite，ruleset 会判 BLOCKED');
+  }
+  const rerun = yamlText('.github/workflows/ci-rerun.yml');
+  if (!rerun) {
+    problems.push('缺少 .github/workflows/ci-rerun.yml：标签变化应重跑原 ci run，而不是新建一次 CI');
+  } else {
+    if (!/pull_request:/.test(rerun) || !/types:\s*\[[^\]]*\blabeled\b/.test(rerun)) problems.push('ci-rerun.yml 必须在 pull_request 的 labeled/unlabeled 事件上运行');
+    if (!/actions:\s*write/.test(rerun)) problems.push('ci-rerun.yml 需要 permissions.actions: write 才能重跑 run');
+    if (!/\/rerun/.test(rerun)) problems.push('ci-rerun.yml 必须调用 Actions 的 run rerun 接口（POST /repos/{owner}/{repo}/actions/runs/{id}/rerun）');
+  }
   must(problems.length === 0, '仓库接线不符合中心仓约定：\n' + problems.map((x) => '    - ' + x).join('\n'),
     '在插件仓根目录运行 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init 生成 caller workflow，或对照 templates/workflows/');
   ok('caller workflow 与中心仓接线一致');
@@ -974,7 +986,46 @@ function diffFiles() {
   DIFF = files.filter((f) => f.path);
   return DIFF;
 }
+let LIVE_LABELS = null;
+
+/**
+ * 标签以运行时的 API 结果为准，而不是触发事件里的快照。
+ *
+ * 原因：标签门（g5/g9）需要在"事后加标签"时由同一个 run 重跑后通过，而重跑沿用
+ * 原始事件 payload，payload 里的 labels 还是加标签之前的状态。读实时状态后，
+ * 重跑就能看到当前标签，同一个 SHA 上只需要一套 check run。
+ * 本地运行（无 token/repo）或请求失败时回退到事件快照。
+ */
+async function loadLiveLabels() {
+  if (OPTS.mode !== 'guard') return;
+  const override = process.env.DSH_CI_PR_LABELS;
+  if (override !== undefined) {
+    LIVE_LABELS = override.split(',').map((s) => s.trim()).filter(Boolean);
+    return;
+  }
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+  const repo = process.env.GITHUB_REPOSITORY;
+  if (!token || !repo) return;
+  try {
+    const number = pr().number;
+    if (!number) return;
+    const res = await fetch('https://api.github.com/repos/' + repo + '/pulls/' + number, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'dsh-ci-gate',
+      },
+    });
+    if (!res.ok) return;
+    const j = await res.json();
+    if (Array.isArray(j.labels)) LIVE_LABELS = j.labels.map((l) => (typeof l === 'string' ? l : l && l.name)).filter(Boolean);
+  } catch (e) {
+    if (process.env.CI_GATE_DEBUG) console.error(e);
+  }
+}
+
 function labelNames() {
+  if (LIVE_LABELS) return LIVE_LABELS;
   return (pr().labels || []).map((l) => (typeof l === 'string' ? l : l.name));
 }
 
@@ -1118,6 +1169,7 @@ async function main() {
     console.log('用法: node .ci/scripts/ci-gate.mjs [--only=a,b] [--skip=c] [--json] [--release|--after-publish|--prepublish|--pr]');
     return;
   }
+  await loadLiveLabels();
   for (const c of checks) {
     if (c.modes.indexOf(OPTS.mode) < 0) continue;
     if (!selected(c.id)) continue;

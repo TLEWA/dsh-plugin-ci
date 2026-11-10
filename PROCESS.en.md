@@ -18,7 +18,7 @@ This document defines the complete path from an idea to a release. Models must f
 5. Open the PR, tick every template item, and explain the motivation and how it was verified.
 6. A human merges once `ci / ci-ok` is green and the labels are present; delete the branch afterwards.
 
-Labels are read from the `pull_request` event payload. After adding `ci-change` or `human-approved`, a new `pull_request` event must be produced; do not use rerun, which replays the old payload. The caller's `pull_request.types` includes `labeled` and `unlabeled`, so adding a label starts a fresh run.
+The gate reads labels from the GitHub API at run time (`DSH_CI_PR_LABELS` exists only for tests), so a rerun sees a label added after the original event. After `ci-change` or `human-approved` is added, the caller's `.github/workflows/ci-rerun.yml` reruns the existing `ci` run on the same commit instead of opening a new one: a rerun is a new attempt of the same run, its check runs are replaced in place, and the SHA keeps exactly one status. The ruleset therefore never sees two check suites and cannot report BLOCKED. Callers no longer listen to `labeled` / `unlabeled` and do not need an empty commit to retrigger CI.
 
 ```bash
 git switch main

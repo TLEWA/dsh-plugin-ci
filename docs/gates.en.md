@@ -9,7 +9,7 @@ Every check in `ci-gate.mjs` maps to a real failure a user has hit. Read this be
 | Check | What it blocks | Why |
 | --- | --- | --- |
 | `config.schema` | Unknown keys, wrong types, missing fields | A misconfigured schema that silently does nothing is more dangerous than an error |
-| `wiring.workflows` | A missing caller, a pin that is not `@vN`, a gate copied back into this repository, `.ci/` missing from `.gitignore` | The reusable workflow is the only execution path; a copy forks the rules |
+| `wiring.workflows` | A missing caller, a pin that is not `@vN`, a gate copied back into this repository, `.ci/` missing from `.gitignore`, a missing `ci-rerun.yml`, or a `ci.yml` that still listens to `labeled` / `unlabeled` | The reusable workflow is the only execution path; a copy forks the rules, and a label event that opens a new run leaves two check suites on one SHA, which the ruleset reads as BLOCKED |
 | `wiring.repository` | Publishing is enabled but `package.json` `repository` does not match the GitHub repository | npm provenance and source tracing depend on this field |
 | `wiring.prepublish` | Publishing is enabled but `prepublishOnly` does not call `dsh-ci-gate --prepublish` | Without this hook, a local `npm publish` is not blocked and releases can happen outside a tag |
 | `manifest.name` | Package name/version format or repository name does not match | npm and GitHub cannot be reconciled when they disagree |

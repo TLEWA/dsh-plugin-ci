@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- Label changes no longer open a new CI run: a new `.github/workflows/ci-rerun.yml` reruns the existing `ci` run on the same commit when `ci-change` / `human-approved` is added. A rerun is a new attempt of the original run, its check runs are replaced in place, and the SHA keeps exactly one check suite. This fixes the "open a PR, then add labels" pattern that produced two CI runs, left the ruleset reporting `BLOCKED`, and made `gh pr checks` look green; callers no longer listen to `labeled` / `unlabeled`.
+
+- The label gates (`guard.g5` / `guard.g9`) now read labels from the GitHub API at run time (`DSH_CI_PR_LABELS` exists only for tests), so a rerun sees a label added after the original event; added regression tests.
+
+- `wiring.workflows` gained two wiring checks: a missing `ci-rerun.yml`, or a `ci.yml` that still listens to label events, fails with a fix hint; `dsh-ci-init` now writes `ci-rerun.yml`.
 - Add shared Codex PR review templates, a read-only local policy check, and bilingual adoption/acceptance guidance; preserve existing CI, human approvals, and publishing.
 
 - Added the managed DSH plugin index at `docs/plugins.md` and `docs/plugins.en.md`, linked from the README documentation table and registered in `ci.config.json` under `docs.pairs` / `docs.required`.

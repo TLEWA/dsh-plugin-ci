@@ -39,6 +39,20 @@ test('init writes an OIDC release caller by default', () => {
   }
 });
 
+test('init writes the label rerun workflow next to the ci caller', () => {
+  const dir = fixture();
+  try {
+    run(dir);
+    const text = readFileSync(join(dir, '.github', 'workflows', 'ci-rerun.yml'), 'utf8');
+    assert.match(text, /types: \[labeled, unlabeled\]/);
+    assert.match(text, /actions:\s*write/);
+    const ci = readFileSync(join(dir, '.github', 'workflows', 'ci.yml'), 'utf8');
+    assert.doesNotMatch(ci, /labeled/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('--npm-token adds with.use-token and is idempotent', () => {
   const dir = fixture();
   try {

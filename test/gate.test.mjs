@@ -52,6 +52,9 @@ function baseConfig() {
 function callerCi(remote = true) {
   return ['name: ci', 'on: [pull_request, push]', 'jobs:', '  ci:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1' : './.github/workflows/reusable-ci.yml'), ''].join('\n');
 }
+function callerRerun() {
+  return ['name: ci-rerun', 'on:', '  pull_request:', '    types: [labeled, unlabeled]', 'permissions:', '  actions: write', 'jobs:', '  rerun:', '    runs-on: ubuntu-latest', '    steps:', '      - run: gh api -X POST "/repos/x/y/actions/runs/1/rerun"', ''].join('\n');
+}
 function callerDrift(remote = true) {
   return ['name: drift', 'on: workflow_dispatch', 'jobs:', '  drift:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-drift.yml@v1' : './.github/workflows/reusable-drift.yml'), ''].join('\n');
 }
@@ -89,6 +92,7 @@ function makeRepo(mutate) {
   write(dir, '.gitignore', '.ci/\nnode_modules/\n');
   write(dir, '.github/PULL_REQUEST_TEMPLATE.md', PR_TEMPLATE);
   write(dir, '.github/workflows/ci.yml', callerCi());
+  write(dir, '.github/workflows/ci-rerun.yml', callerRerun());
   write(dir, '.github/workflows/drift.yml', callerDrift());
   write(dir, '.github/workflows/release.yml', callerRelease());
   write(dir, 'test/run.test.mjs', "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('fixture', () => assert.ok(true));\n");
@@ -318,6 +322,17 @@ test('wiring fails when a caller workflow is missing', () => {
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
 });
 
+test('wiring requires a label rerun caller instead of a second ci run', () => {
+  const dir = makeRepo((d) => rmSync(join(d, '.github/workflows/ci-rerun.yml')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring rejects a ci workflow that starts a new run on label changes', () => {
+  const dir = makeRepo((d) => write(d, '.github/workflows/ci.yml',
+    callerCi().replace('on: [pull_request, push]', 'on:\n  pull_request:\n    types: [opened, labeled]\n  push:\n')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
 test('wiring fails when a gate copy is committed', () => {
   const dir = makeRepo((d) => write(d, 'scripts/ci-gate.mjs', '// copied gate\n'));
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
@@ -475,6 +490,26 @@ test('guard.g9 requires the human-approved label', () => {
   const event = join(dir, '.event.json');
   writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'done', labels: [], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
   expectFail(parsed(run(dir, ['--pr', '--only=guard.g9-human-approved'], { GITHUB_EVENT_PATH: event })), 'guard.g9-human-approved');
+});
+
+test('guard.g9 reads live labels so a rerun sees the label that was just added', () => {
+  const dir = makeRepo((d) => {
+    const c = baseConfig(); c.guards.requireHumanApprovedLabel = true;
+    write(d, 'ci.config.json', JSON.stringify(c));
+  });
+  const base = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  write(dir, 'lib/index.js', 'export const demo = 5;\n');
+  git(dir, ['checkout', '-q', '-b', 'feat/change']);
+  commitAll(dir, 'pr change');
+  const head = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim();
+  const event = join(dir, '.event.json');
+  writeFileSync(event, JSON.stringify({ pull_request: { number: 1, body: 'done', labels: [], head: { ref: 'feat/change', sha: head }, base: { sha: base } } }));
+
+  const live = parsed(run(dir, ['--pr', '--only=guard.g9-human-approved'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_LABELS: 'ci-change,human-approved' }));
+  assert.equal(result(live, 'guard.g9-human-approved').status, 'ok');
+
+  const stale = parsed(run(dir, ['--pr', '--only=guard.g9-human-approved'], { GITHUB_EVENT_PATH: event, DSH_CI_PR_LABELS: '' }));
+  expectFail(stale, 'guard.g9-human-approved');
 });
 
 test('release.r7-post waits for registry propagation before passing', async () => {

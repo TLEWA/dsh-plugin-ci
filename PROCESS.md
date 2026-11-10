@@ -18,7 +18,7 @@
 5. 开 PR，按模板逐项勾选，写清动机与验证方式。
 6. CI 的 `ci / ci-ok` 全绿且标签齐全后由人合并；合并后删除分支。
 
-标签是在 `pull_request` 事件载荷里读取的。加完 `ci-change` / `human-approved` 后必须产生一次新的 `pull_request` 事件；不要用 rerun，它复用旧载荷。caller 的 `pull_request.types` 已包含 `labeled` 与 `unlabeled`，加标签会自动触发新的 run。
+标签由 gate 在运行时通过 GitHub API 读取（`DSH_CI_PR_LABELS` 仅供测试覆盖），所以重跑也能看到刚加的标签。加完 `ci-change` / `human-approved` 后，caller 的 `.github/workflows/ci-rerun.yml` 会重跑同一 commit 上已有的 `ci` run，而不是新建一次 run：重跑只是原 run 的新 attempt，check run 原位替换，同一 SHA 上始终只有一套状态，ruleset 不会因为两套 suite 判 BLOCKED。因此 caller 的 `ci.yml` 不监听 `labeled` / `unlabeled`，也不需要为重跑补空提交。
 
 ```bash
 git switch main

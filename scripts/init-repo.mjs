@@ -71,6 +71,7 @@ function enableTokenFallback(dest) {
 
 mkdirSync(join(process.cwd(), '.github', 'workflows'), { recursive: true });
 copy('workflows/ci.yml', '.github/workflows/ci.yml');
+copy('workflows/ci-rerun.yml', '.github/workflows/ci-rerun.yml');
 copy('workflows/drift.yml', '.github/workflows/drift.yml');
 copy('workflows/release.yml', '.github/workflows/release.yml');
 if (npmToken) enableTokenFallback('.github/workflows/release.yml');
