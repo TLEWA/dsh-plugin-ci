@@ -2,6 +2,12 @@
 
 > Primary documentation language: Chinese · [中文](./CHANGELOG.md)
 
+## [1.0.4] - 2026-11-11
+
+- `ci-rerun.yml` now scopes concurrency to the job: unrelated label events never start it and therefore cannot cancel a pending or running rerun; the group is still keyed by PR number.
+
+- `ci-rerun.yml` now keys its concurrency group by PR number (`github.event.pull_request.number`), so forks whose branches share a name no longer cancel each other's pending rerun.
+
 ## [1.0.3] - 2026-11-11
 
 - Label changes no longer open a new CI run: a new `.github/workflows/ci-rerun.yml` reruns the existing `ci` run on the same commit when `ci-change` / `human-approved` is added. A rerun is a new attempt of the original run, its check runs are replaced in place, and the SHA keeps exactly one check suite. This fixes the "open a PR, then add labels" pattern that produced two CI runs, left the ruleset reporting `BLOCKED`, and made `gh pr checks` look green; callers no longer listen to `labeled` / `unlabeled`.
@@ -9,10 +15,6 @@
 - The label gates (`guard.g5` / `guard.g9`) now read labels from the GitHub API at run time (`DSH_CI_PR_LABELS` exists only for tests), so a rerun sees a label added after the original event; added regression tests.
 
 - Labels and the PR body are read live at gate run time, so fixing the checklist and rerunning is enough; when that lookup fails in CI the gate fails closed instead of reusing the stale event snapshot, which could let a revoked label through.
-
-- `ci-rerun.yml` now scopes concurrency to the job: unrelated label events never start it and therefore cannot cancel a pending or running rerun; the group is still keyed by PR number.
-
-- `ci-rerun.yml` now keys its concurrency group by PR number (`github.event.pull_request.number`), so forks whose branches share a name no longer cancel each other's pending rerun.
 
 - `ci-rerun.yml` uses `pull_request_target`: a fork PR's `pull_request` token is read-only and cannot request `actions: write`; the workflow never checks out PR code and only calls the API from the trusted context.
 

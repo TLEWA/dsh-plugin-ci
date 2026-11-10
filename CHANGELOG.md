@@ -2,6 +2,12 @@
 
 > 主文档语言：中文 · [English](./CHANGELOG.en.md)
 
+## [1.0.4] - 2026-11-11
+
+- `ci-rerun.yml` 的并发控制移到 job 层：无关标签（增删）不再启动任务、不会取消正在等待或执行的重跑；组仍按 PR 编号隔离。
+
+- `ci-rerun.yml` 的并发组改用 PR 编号（`github.event.pull_request.number`）：不同 fork 的同名源分支不再共享并发组、互相取消等待中的重跑。
+
 ## [1.0.3] - 2026-11-11
 
 - 标签变化不再新建 CI run：新增 `.github/workflows/ci-rerun.yml`，加 `ci-change` / `human-approved` 时重跑同一 commit 上已有的 `ci` run。重跑只是原 run 的新 attempt，check run 原位替换，同一 SHA 只保留一套 check suite，修复“建 PR 再加标签”产生两次 CI、ruleset 判 `BLOCKED`、`gh pr checks` 却全绿的问题；caller 的 `ci.yml` 不再监听 `labeled` / `unlabeled`。
@@ -9,10 +15,6 @@
 - 标签门（`guard.g5` / `guard.g9`）改为运行时通过 GitHub API 读取标签（`DSH_CI_PR_LABELS` 仅供测试覆盖），重跑能看到刚加的标签；新增对应回归测试。
 
 - 标签与 PR 描述都在 gate 运行时实时读取，作者补勾清单后重跑即可通过；CI 中读取失败时 gate 直接失败（fail closed），不再静默回退旧事件快照，避免已撤销的标签仍被放行。
-
-- `ci-rerun.yml` 的并发控制移到 job 层：无关标签（增删）不再启动任务、不会取消正在等待或执行的重跑；组仍按 PR 编号隔离。
-
-- `ci-rerun.yml` 的并发组改用 PR 编号（`github.event.pull_request.number`）：不同 fork 的同名源分支不再共享并发组、互相取消等待中的重跑。
 
 - `ci-rerun.yml` 使用 `pull_request_target`：fork PR 的 `pull_request` token 只读，无法请求 `actions: write`；该工作流不检出 PR 代码，只在可信上下文里调 API 重跑。
 
