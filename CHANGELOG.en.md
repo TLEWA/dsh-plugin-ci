@@ -2,7 +2,7 @@
 
 > Primary documentation language: Chinese · [中文](./CHANGELOG.md)
 
-## [Unreleased]
+## [1.0.5] - 2026-11-11
 
 - `ci-rerun.yml` now serializes runs instead of cancelling them (`cancel-in-progress: false`): adding both labels no longer cancels one rerun, so the SHA keeps no cancelled check run and the PR does not drop to `mergeStateStatus=UNSTABLE`; repeated rerun requests are skipped idempotently.
 
