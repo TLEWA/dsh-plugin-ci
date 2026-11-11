@@ -8,7 +8,7 @@ Enable cloud Codex automatic reviews for all authors in the nine repositories be
 
 Reviews consume subscription usage. Extra credits and comprehensive review default to off. Consult the account usage page for limits. Unverified settings, missing results, exhausted usage, or insufficient permissions mean incomplete, never passed. If the account cannot review every new commit automatically, stop rollout and record the gap.
 
-Codex reports provable serious defects in Chinese with triggers, impact, and code locations. CI handles mechanical checks; humans provide approval labels and merge decisions. Reviews are feedback, without automatic fixes, version changes, or publishing. Preserve the existing required check `ci / ci-ok`, ruleset, `human-approved`, and `ci-change` processes.
+Codex reports provable serious defects in Chinese with triggers, impact, and code locations. CI handles mechanical checks; humans provide approval labels and merge decisions. Reviews are feedback, without automatic fixes, version changes, or publishing. Preserve the existing required checks `ci / ci-ok` and `pr-guard / guard`, the ruleset, and the `human-approved` and `ci-change` processes.
 
 ## Maintaining and checking rules
 

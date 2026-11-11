@@ -1,0 +1,36 @@
+name: reusable-pr-guard
+
+# 只做 PR guard：读取实时标签与描述，跑 ci-gate --pr。
+# 与 reusable-ci 的 verify 分开，标签/描述变化时只重跑本工作流。
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out the calling repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check out the canonical gate
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository || github.repository }}
+          ref: ${{ job.workflow_sha || github.sha }}
+          path: .ci
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: PR guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .ci/scripts/ci-gate.mjs --pr
+

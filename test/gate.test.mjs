@@ -50,10 +50,19 @@ function baseConfig() {
 }
 
 function callerCi(remote = true) {
-  return ['name: ci', 'on: [pull_request, push]', 'jobs:', '  ci:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1' : './.github/workflows/reusable-ci.yml'), ''].join('\n');
+  return ['name: ci', 'on: [pull_request, push]', 'jobs:', '  ci:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1' : './.github/workflows/reusable-ci.yml'), '    with:', '      separate-guard: true', ''].join('\n');
+}
+function callerCiLegacy(remote = true) {
+  return ['name: ci', 'on:', '  pull_request:', '    types: [opened, synchronize, reopened, ready_for_review]', '  push:', 'jobs:', '  ci:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1' : './.github/workflows/reusable-ci.yml'), ''].join('\n');
+}
+function callerRerunCi() {
+  return callerRerun().replace('"pr-guard"', '"ci"');
+}
+function callerPrGuard(remote = true) {
+  return ['name: pr-guard', 'on:', '  pull_request:', '    types: [opened, synchronize]', 'jobs:', '  pr-guard:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-pr-guard.yml@v1' : './.github/workflows/reusable-pr-guard.yml'), ''].join('\n');
 }
 function callerRerun() {
-  return ['name: ci-rerun', 'on:', '  pull_request:', '    types: [labeled, unlabeled]', 'permissions:', '  actions: write', 'jobs:', '  rerun:', '    runs-on: ubuntu-latest', '    steps:', '      - run: gh api -X POST "/repos/x/y/actions/runs/1/rerun"', ''].join('\n');
+  return ['name: ci-rerun', 'on:', '  pull_request_target:', '    types: [labeled, unlabeled, edited]', 'permissions:', '  actions: write', 'jobs:', '  rerun:', '    runs-on: ubuntu-latest', '    steps:', '      - run: |', "          run_id=$(gh api \"/repos/x/y/actions/runs?head_sha=abc\" --jq '[.workflow_runs[] | select(.name == \"pr-guard\")] | last | .id')", '          gh api -X POST "/repos/x/y/actions/runs/1/rerun"', ''].join('\n');
 }
 function callerDrift(remote = true) {
   return ['name: drift', 'on: workflow_dispatch', 'jobs:', '  drift:', '    uses: ' + (remote ? 'TLEWA/dsh-plugin-ci/.github/workflows/reusable-drift.yml@v1' : './.github/workflows/reusable-drift.yml'), ''].join('\n');
@@ -92,6 +101,7 @@ function makeRepo(mutate) {
   write(dir, '.gitignore', '.ci/\nnode_modules/\n');
   write(dir, '.github/PULL_REQUEST_TEMPLATE.md', PR_TEMPLATE);
   write(dir, '.github/workflows/ci.yml', callerCi());
+  write(dir, '.github/workflows/pr-guard.yml', callerPrGuard());
   write(dir, '.github/workflows/ci-rerun.yml', callerRerun());
   write(dir, '.github/workflows/drift.yml', callerDrift());
   write(dir, '.github/workflows/release.yml', callerRelease());
@@ -485,12 +495,67 @@ test('wiring ignores a uses: line that is only a YAML comment', () => {
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
 });
 
+test('wiring fails when the pr-guard caller is missing', () => {
+  const dir = makeRepo((d) => rmSync(join(d, '.github/workflows/pr-guard.yml')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring rejects a pr-guard caller pinned to a moving tag', () => {
+  const dir = makeRepo((d) => write(d, '.github/workflows/pr-guard.yml', callerPrGuard().replace('@v1', '@main')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring rejects a pr-guard workflow that starts a new run on label changes', () => {
+  const dir = makeRepo((d) => write(d, '.github/workflows/pr-guard.yml',
+    callerPrGuard().replace('types: [opened, synchronize]', 'types: [opened, labeled]')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring rejects a ci workflow that reruns the matrix on reopen or draft-ready', () => {
+  const dir = makeRepo((d) => write(d, '.github/workflows/ci.yml',
+    callerCi().replace('on: [pull_request, push]', 'on:\n  pull_request:\n    types: [opened, reopened]\n  push:\n')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring rejects a pr-guard caller without separate-guard: true', () => {
+  const dir = makeRepo((d) => write(d, '.github/workflows/ci.yml', callerCiLegacy()));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring accepts a legacy caller that still runs the guard inside reusable-ci', () => {
+  const dir = makeRepo((d) => {
+    rmSync(join(d, '.github/workflows/pr-guard.yml'));
+    write(d, '.github/workflows/ci.yml', callerCiLegacy());
+    write(d, '.github/workflows/ci-rerun.yml', callerRerunCi());
+  });
+  const json = parsed(run(dir, ['--only=wiring.workflows']));
+  const res = result(json, 'wiring.workflows');
+  assert.equal(res.status, 'warn');
+  assert.match(res.msg, /旧接线/);
+});
+
+test('wiring rejects a legacy caller whose rerun targets pr-guard without the split wiring', () => {
+  const dir = makeRepo((d) => {
+    rmSync(join(d, '.github/workflows/pr-guard.yml'));
+    write(d, '.github/workflows/ci.yml', callerCiLegacy());
+  });
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
+test('wiring rejects a rerun workflow that still reruns the ci matrix', () => {
+  const dir = makeRepo((d) => write(d, '.github/workflows/ci-rerun.yml',
+    callerRerun().replace('gh api -X POST', 'run_id=$(gh api "/repos/x/y/actions/runs?head_sha=abc" --jq \'[.workflow_runs[] | select(.name == "ci")] | last | .id\')\n          gh api -X POST')));
+  expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
+});
+
 test('wiring accepts a selfHosted repository with local reusable workflows', () => {
   const dir = makeRepo((d) => {
     const c = baseConfig(); c.selfHosted = true;
     write(d, 'ci.config.json', JSON.stringify(c));
     write(d, '.github/workflows/ci.yml', callerCi(false));
+    write(d, '.github/workflows/pr-guard.yml', callerPrGuard(false));
     write(d, '.github/workflows/reusable-ci.yml', 'on: workflow_call\n');
+    write(d, '.github/workflows/reusable-pr-guard.yml', 'on: workflow_call\n');
     write(d, '.github/workflows/reusable-release.yml', 'on: workflow_call\n');
     write(d, '.github/workflows/reusable-drift.yml', 'on: workflow_call\n');
   });
@@ -503,7 +568,9 @@ test('wiring lets a selfHosted repo vendor the gate without a .ci checkout', () 
     const c = baseConfig(); c.selfHosted = true;
     write(d, 'ci.config.json', JSON.stringify(c));
     write(d, '.github/workflows/ci.yml', callerCi(false));
+    write(d, '.github/workflows/pr-guard.yml', callerPrGuard(false));
     write(d, '.github/workflows/reusable-ci.yml', 'on: workflow_call\n');
+    write(d, '.github/workflows/reusable-pr-guard.yml', 'on: workflow_call\n');
     write(d, '.github/workflows/reusable-release.yml', 'on: workflow_call\n');
     write(d, '.github/workflows/reusable-drift.yml', 'on: workflow_call\n');
     write(d, 'scripts/ci-gate.mjs', '// vendored gate\n');
@@ -518,7 +585,9 @@ test('wiring still rejects sync artifacts in a selfHosted repo', () => {
     const c = baseConfig(); c.selfHosted = true;
     write(d, 'ci.config.json', JSON.stringify(c));
     write(d, '.github/workflows/ci.yml', callerCi(false));
+    write(d, '.github/workflows/pr-guard.yml', callerPrGuard(false));
     write(d, '.github/workflows/reusable-ci.yml', 'on: workflow_call\n');
+    write(d, '.github/workflows/reusable-pr-guard.yml', 'on: workflow_call\n');
     write(d, '.github/workflows/reusable-release.yml', 'on: workflow_call\n');
     write(d, '.github/workflows/reusable-drift.yml', 'on: workflow_call\n');
     write(d, 'scripts/ci-process.json', '{}\n');

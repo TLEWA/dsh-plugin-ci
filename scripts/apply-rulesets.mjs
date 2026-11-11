@@ -47,6 +47,28 @@ function subset(expected, actual) {
   return Object.keys(expected).every((k) => subset(expected[k], actual[k]));
 }
 
+// 旧接线（未传 separate-guard）不会产生 pr-guard / guard check，required check 必须相应裁剪，
+// 否则一次规则下发就会让仍在 v1 旧接线的仓库无法合并。
+export function adaptRuleset(spec, split) {
+  return {
+    ...spec,
+    rules: spec.rules.map((rule) => {
+      if (rule.type !== 'required_status_checks') return rule;
+      const checks = rule.parameters.required_status_checks.filter((c) => split || c.context !== 'pr-guard / guard');
+      return { ...rule, parameters: { ...rule.parameters, required_status_checks: checks } };
+    }),
+  };
+}
+
+function repoUsesSplitGuard(repo) {
+  try {
+    const raw = gh(['api', 'repos/' + repo + '/contents/.github/workflows/ci.yml', '-H', 'Accept: application/vnd.github.raw']);
+    return /separate-guard:\s*true/.test(raw);
+  } catch (e) {
+    throw new Error('无法读取 ' + repo + ' 的 .github/workflows/ci.yml，无法判断是否已迁移到拆分接线：' + String(e.stderr || e.message).trim());
+  }
+}
+
 // GitHub adds default parameters and may reorder rules. Compare the declared
 // contract as a subset keyed by rule type instead of raw API output.
 export function rulesMatch(expectedRules, liveRules) {
@@ -76,8 +98,10 @@ function main() {
   let drift = false;
   for (const repo of repos) {
     const existing = JSON.parse(gh(['api', 'repos/' + repo + '/rulesets']) || '[]');
+    const split = repoUsesSplitGuard(repo);
+    console.log((split ? 'split  ' : 'legacy ') + repo + '  (required checks follow its ci.yml)');
     for (const file of files) {
-      const spec = JSON.parse(readFileSync(join('rulesets', file), 'utf8'));
+      const spec = adaptRuleset(JSON.parse(readFileSync(join('rulesets', file), 'utf8')), split);
       const found = existing.find((r) => r.name === spec.name);
       if (checkOnly) {
         let live = null;

@@ -9,7 +9,7 @@ DSH 插件仓库共用的严格 CI / PR 策略仓。它把「怎么改、怎么�
 - 一个中心仓：检查逻辑、配置契约、GitHub Actions 复用工作流与 ruleset 定义都只存在这里。
 - 一个零依赖的 `scripts/ci-gate.mjs`，Node.js >= 20 即可运行，不安装任何包。
 - 一套薄模板：插件仓库只复制 caller workflow 与 `ci.config.json`，用 `@v1` 调用复用工作流。
-- 一条硬门禁：PR 只认唯一 required check `ci / ci-ok`，发布只认 tag。
+- 两条硬门禁：PR 必须同时通过 `ci / ci-ok`（verify 六格矩阵的聚合）与 `pr-guard / guard`（PR 元数据检查），发布只认 tag。
 - 一份已接入插件的索引：[docs/plugins.md](./docs/plugins.md)。
 
 ## 五层架构
@@ -19,7 +19,7 @@ DSH 插件仓库共用的严格 CI / PR 策略仓。它把「怎么改、怎么�
 | 模板层 | `templates/` | 下游复制一次的薄声明 |
 | 复用层 | `.github/workflows/reusable-*.yml` | 执行 CI、发布与巡检，下游 pin `@v1` |
 | 策略层 | `scripts/`、`schema/`、`rulesets/` | 唯一事实源，任何仓库不得私改 |
-| 强制层 | GitHub ruleset | 把 `ci / ci-ok` 变成合并硬条件 |
+| 强制层 | GitHub ruleset | 把该仓接线产生的 check 变成合并硬条件（`ci / ci-ok`；拆分接线再加 `pr-guard / guard`） |
 | 巡检层 | `reusable-drift.yml` | 每周发现落后 pin 与回退接线 |
 
 设计与取舍见 [docs/architecture.md](./docs/architecture.md)。
@@ -36,9 +36,9 @@ DSH 插件仓库共用的严格 CI / PR 策略仓。它把「怎么改、怎么�
 
 ## 接入一个插件仓库
 
-1. 在插件仓根目录运行初始化脚本，写入三个 caller workflow、`ci.config.json`，并把 `.ci/` 加进 `.gitignore`。
+1. 在插件仓根目录运行初始化脚本，写入四个 caller workflow（`ci.yml`、`pr-guard.yml`、`ci-rerun.yml`、`release.yml`）、`ci.config.json`，并把 `.ci/` 加进 `.gitignore`。生成的 `ci.yml` 会传 `with: separate-guard: true`，guard 由 `pr-guard.yml` 单独运行；旧仓库不传该开关时 guard 仍随 `reusable-ci.yml` 运行，可择机迁移。
 2. 按插件实际构建、测试与发布方式改 `ci.config.json`；只声明差异，不要复制检查逻辑。
-3. 提交 PR；首次 CI 通过后，维护者应用 `rulesets/main.json` 与 `rulesets/tags-v.json`。
+3. 提交 PR；首次 CI 通过后，维护者应用 `rulesets/main.json` 与 `rulesets/tags-v.json`。`apply-rulesets.mjs` 会读取每个目标仓 `ci.yml` 的 `separate-guard`，旧接线只要求 `ci / ci-ok`，不会因为新增强制 check 阻断未迁移的仓库。
 
 ```bash
 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init

@@ -13,7 +13,7 @@ This file is the working policy for models and applies together with [PROCESS.en
 - When adding or retiring an adopted plugin, update `docs/plugins.md` and `docs/plugins.en.md` in the same change.
 - When changing the gate, schema, rulesets or reusable workflows, explain the impact and include tests in the PR.
 - When CI fails, read the `fix:` hint on each line and fix the root cause; if it cannot be fixed, document every attempt in the PR and hand it to a human.
-- To rerun CI, add the label and let `ci-rerun` rerun the existing run (one check suite per SHA); do not push an empty commit just to retrigger it.
+- To rerun CI, add the label or edit the PR description and let `ci-rerun` rerun the existing `pr-guard` run (one check suite per SHA); do not push an empty commit just to retrigger it, and the verify matrix is not rerun.
 
 ## Prohibited
 

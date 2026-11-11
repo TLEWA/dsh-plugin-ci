@@ -76,7 +76,7 @@ npm test
 
 ## Anti-patterns
 
-- Treating "it works locally" as evidence: the PR is judged by CI's `ci / ci-ok`.
+- Treating "it works locally" as evidence: the PR is judged by CI's `ci / ci-ok` and `pr-guard / guard`.
 - Putting `--skip=` in a workflow, or copying the gate into a repository so checks are "visible" but no longer controlled by the center.
 - Editing docs to describe a failure as a pass; `docs.links` and `docs.pairs` will expose it.
 - Mixing unrelated refactors into one PR; `guard.g8` warns about diff size.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -44,10 +44,15 @@ test('init writes the label rerun workflow next to the ci caller', () => {
   try {
     run(dir);
     const text = readFileSync(join(dir, '.github', 'workflows', 'ci-rerun.yml'), 'utf8');
-    assert.match(text, /types: \[labeled, unlabeled\]/);
+    assert.match(text, /types: \[labeled, unlabeled, edited\]/);
     assert.match(text, /actions:\s*write/);
+    assert.match(text, /select\(\.name == "pr-guard"\)/);
     const ci = readFileSync(join(dir, '.github', 'workflows', 'ci.yml'), 'utf8');
     assert.doesNotMatch(ci, /labeled/);
+    assert.doesNotMatch(ci, /reopened/);
+    const guard = readFileSync(join(dir, '.github', 'workflows', 'pr-guard.yml'), 'utf8');
+    assert.match(guard, /uses: TLEWA\/dsh-plugin-ci\/\.github\/workflows\/reusable-pr-guard\.yml@v1/);
+    assert.doesNotMatch(guard, /types:\s*\[[^\]]*\blabeled\b/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -63,6 +68,30 @@ test('--npm-token adds with.use-token and is idempotent', () => {
     run(dir, ['--npm-token']);
     const again = releaseWorkflow(dir);
     assert.equal((again.match(/use-token:/g) || []).length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('init keeps an existing legacy ci caller and does not add a half-migrated guard', () => {
+  const dir = fixture();
+  try {
+    const workflows = join(dir, '.github', 'workflows');
+    mkdirSync(workflows, { recursive: true });
+    writeFileSync(join(workflows, 'ci.yml'), [
+      'name: ci',
+      'on:',
+      '  pull_request:',
+      '    types: [opened, synchronize, reopened, ready_for_review]',
+      '  push:',
+      'jobs:',
+      '  ci:',
+      '    uses: TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1',
+      '',
+    ].join('\n'));
+    run(dir);
+    assert.ok(!existsSync(join(workflows, 'pr-guard.yml')), 'a legacy ci caller must not gain a guard that the gate would treat as half-migrated');
+    assert.doesNotMatch(readFileSync(join(workflows, 'ci.yml'), 'utf8'), /separate-guard/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

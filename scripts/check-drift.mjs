@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const CANONICAL = 'TLEWA/dsh-plugin-ci';
-const WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/drift.yml', '.github/workflows/release.yml'];
+const WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/pr-guard.yml', '.github/workflows/drift.yml', '.github/workflows/release.yml'];
 const PIN_RE = new RegExp(CANONICAL.replace(/[./]/g, '\\$&') + '/\\.github/workflows/[a-z-]+\\.yml@v(\\d+)', 'g');
 
 function read(p) {

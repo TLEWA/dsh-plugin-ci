@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { rulesetEndpoint, rulesMatch } from '../scripts/apply-rulesets.mjs';
+import { adaptRuleset, rulesetEndpoint, rulesMatch } from '../scripts/apply-rulesets.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -15,7 +15,7 @@ test('main protection requires the reusable workflow aggregate check', () => {
   assert.deepEqual(main.bypass_actors, []);
   const checks = main.rules.find((r) => r.type === 'required_status_checks');
   assert.ok(checks, 'missing required_status_checks');
-  assert.deepEqual(checks.parameters.required_status_checks.map((c) => c.context), ['ci / ci-ok']);
+  assert.deepEqual(checks.parameters.required_status_checks.map((c) => c.context), ['ci / ci-ok', 'pr-guard / guard']);
   assert.equal(checks.parameters.strict_required_status_checks_policy, true);
   const pr = main.rules.find((r) => r.type === 'pull_request');
   assert.ok(pr, 'missing pull_request rule');
@@ -31,6 +31,15 @@ test('main protection forbids deletion, force pushes and merge commits', () => {
 test('ruleset endpoints do not include the HTTP method', () => {
   assert.equal(rulesetEndpoint('TLEWA/example', null), 'repos/TLEWA/example/rulesets');
   assert.equal(rulesetEndpoint('TLEWA/example', { id: 42 }), 'repos/TLEWA/example/rulesets/42');
+});
+
+test('required checks follow the caller migration state', () => {
+  const main = read('rulesets/main.json');
+  const contexts = (spec) => spec.rules.find((r) => r.type === 'required_status_checks')
+    .parameters.required_status_checks.map((c) => c.context);
+  assert.deepEqual(contexts(adaptRuleset(main, true)), ['ci / ci-ok', 'pr-guard / guard']);
+  assert.deepEqual(contexts(adaptRuleset(main, false)), ['ci / ci-ok'], 'a legacy caller never produces the standalone guard check');
+  assert.deepEqual(contexts(main), ['ci / ci-ok', 'pr-guard / guard'], 'the source definition must stay unmodified');
 });
 
 test('ruleset comparison tolerates API defaults and rule order', () => {
@@ -56,13 +65,13 @@ test('ruleset comparison tolerates API defaults and rule order', () => {
       type: 'required_status_checks',
       parameters: {
         do_not_enforce_on_create: false,
-        required_status_checks: [{ context: 'ci / ci-ok' }],
+        required_status_checks: [{ context: 'ci / ci-ok' }, { context: 'pr-guard / guard' }],
         strict_required_status_checks_policy: true,
       },
     },
   ];
   assert.equal(rulesMatch(expected, live), true);
-  live[4].parameters.required_status_checks[0].context = 'ci / verify';
+  live[4].parameters.required_status_checks[1].context = 'ci / verify';
   assert.equal(rulesMatch(expected, live), false);
 });
 

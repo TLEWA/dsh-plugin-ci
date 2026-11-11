@@ -13,7 +13,7 @@
 - 新增或退役已接入插件时，同步更新 `docs/plugins.md` 与 `docs/plugins.en.md`。
 - 改 gate、schema、ruleset 或 reusable workflow 时，在 PR 里说明影响并附测试。
 - CI 失败时读每行的 `fix:` 提示修根因；修不动就在 PR 里写清尝试过的方案并交给人。
-- 需要重跑 CI 时加标签让 `ci-rerun` 重跑原 run（同一 SHA 保持一套 check suite），不要为空跑再加提交。
+- 需要重跑 CI 时加标签或编辑 PR 描述，让 `ci-rerun` 重跑原 `pr-guard` run（同一 SHA 保持一套 check suite），不要为空跑再加提交；verify 矩阵不会因此重跑。
 
 ## 禁止
 

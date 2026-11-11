@@ -12,7 +12,7 @@
 2. GitHub 侧：
    - caller workflow 的 `permissions` 保持 `contents: write` 与 `id-token: write`；reusable workflow 已声明同样的权限。
    - `main` 应用 `rulesets/main.json`，`v*.*.*` 应用 `rulesets/tags-v.json`；`v1` 这类可移动 tag 不保护。
-   - required status check 只设 `ci / ci-ok`。
+   - required status check 设 `ci / ci-ok` 与 `pr-guard / guard` 两条。
 3. `package.json` 的 `prepublishOnly` 必须调用 `dsh-ci-gate --prepublish`；`dsh-ci-init` 会在缺失时自动写入，`wiring.prepublish` 会检查。
 4. 仓库里只需要 caller workflow、`ci.config.json` 与双语文档；不要放 `ci-gate.mjs`、`ci-process.json` 或 `sync-ci.mjs`。
 
@@ -20,7 +20,7 @@
 
 1. 从 `main` 开 `release/<version>` 分支。
 2. 提升 `package.json` 的 `version`，在两个 CHANGELOG 里写同一版本小节。
-3. 开 PR，等 `ci / ci-ok` 绿、维护者加 `human-approved`，合并回 `main`。
+3. 开 PR，等 `ci / ci-ok` 与 `pr-guard / guard` 绿、维护者加 `human-approved`，合并回 `main`。
 4. 在 `main` 的最新提交上打 tag 并推送：
 
 ```bash
@@ -67,4 +67,4 @@ gh workflow run release.yml --ref main -f tag=v1.0.6
 - 本机 `npm publish`（包括任何发布命令）。
 - 强行移动或覆盖已发布版本对应的 tag；可移动的 `v1` 只指向最新的 1.x。
 - 在 `feat/`、`fix/` 分支上打 tag。
-- 跳过 `ci / ci-ok` 或绕过 ruleset 直接 push `main`。
+- 跳过 `ci / ci-ok` 或 `pr-guard / guard`、或绕过 ruleset 直接 push `main`。

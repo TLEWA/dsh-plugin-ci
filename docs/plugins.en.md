@@ -9,9 +9,10 @@ This page is the index of downstream plugins managed by this canonical repositor
 A repository is "managed" only when all of the following hold:
 
 - it has a root `ci.config.json`;
-- `ci.yml` calls `TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1`;
+- `ci.yml` calls `TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1` and passes `with: separate-guard: true` (a legacy repository may omit it and keep the inline guard until it migrates);
+- `pr-guard.yml` calls `TLEWA/dsh-plugin-ci/.github/workflows/reusable-pr-guard.yml@v1`;
 - `release.yml` calls `TLEWA/dsh-plugin-ci/.github/workflows/reusable-release.yml@v1`;
-- the canonical main ruleset is applied, so merges require `ci / ci-ok`;
+- the canonical main ruleset is applied, so merges require the checks that wiring actually produces (legacy: `ci / ci-ok`; split: plus `pr-guard / guard`; `apply-rulesets.mjs` reads the target `ci.yml` and adapts the required checks);
 - for publishing repositories, the tag ruleset is applied and a repository-level `NPM_TOKEN` is used (`with: use-token: true`).
 
 DSH plugins that are not wired to the canonical CI are out of scope, even when they share an author. This repository is CI tooling, not a plugin, so it is not listed.
@@ -32,7 +33,7 @@ DSH plugins that are not wired to the canonical CI are out of scope, even when t
 ## Shared wiring
 
 - The repositories in the index pin `@v1`; after a new major release of the canonical repository, `reusable-drift.yml` reports stale pins.
-- The CI matrix is Ubuntu / Windows × Node 20 / 22 / 24, and the only required check is `ci / ci-ok`.
+- The CI matrix is Ubuntu / Windows x Node 20 / 22 / 24 and is aggregated by `ci / ci-ok`; PR metadata is checked by the separate `pr-guard / guard`, and both are required checks.
 - Releases are tag-only: `release.yml` calls `reusable-release.yml@v1`, which runs preflight, npm publish, post-publish verification and the GitHub Release.
 - Publishing repositories in the index are configured to publish npm packages with provenance. Every release caller uses `with: use-token: true` with the repository secret `NPM_TOKEN` instead of OIDC.
 - Local publishing is blocked by `prepublishOnly` calling `dsh-ci-gate --prepublish`; do not run `npm publish` directly.

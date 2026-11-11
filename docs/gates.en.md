@@ -9,7 +9,7 @@ Every check in `ci-gate.mjs` maps to a real failure a user has hit. Read this be
 | Check | What it blocks | Why |
 | --- | --- | --- |
 | `config.schema` | Unknown keys, wrong types, missing fields | A misconfigured schema that silently does nothing is more dangerous than an error |
-| `wiring.workflows` | A missing caller, a pin that is not `@vN`, a gate copied back into this repository, `.ci/` missing from `.gitignore`, a missing `ci-rerun.yml`, or a `ci.yml` that still listens to `labeled` / `unlabeled` | The reusable workflow is the only execution path; a copy forks the rules, and a label event that opens a new run leaves two check suites on one SHA, which the ruleset reads as BLOCKED |
+| `wiring.workflows` | A missing caller, a pin that is not `@vN`, a gate copied back into this repository, `.ci/` missing from `.gitignore`, a missing standalone `pr-guard.yml` or a missing `separate-guard: true` in split mode (legacy wiring only warns), a `ci-rerun.yml` that does not rerun `pr-guard`, or a `ci.yml` / `pr-guard.yml` that still listens to `labeled` / `unlabeled` / `reopened` / `ready_for_review` | The reusable workflow is the only execution path; a copy forks the rules. The guard must be its own workflow so a label or PR-description edit reruns only that cell. A label event that opens a new run leaves two check suites on one SHA, which the ruleset reads as BLOCKED, and `reopened` / `ready_for_review` make the six-cell matrix run for nothing |
 | `wiring.repository` | Publishing is enabled but `package.json` `repository` does not match the GitHub repository | npm provenance and source tracing depend on this field |
 | `wiring.prepublish` | Publishing is enabled but `prepublishOnly` does not call `dsh-ci-gate --prepublish` | Without this hook, a local `npm publish` is not blocked and releases can happen outside a tag |
 | `manifest.name` | Package name/version format or repository name does not match | npm and GitHub cannot be reconciled when they disagree |
@@ -52,6 +52,8 @@ Every check in `ci-gate.mjs` maps to a real failure a user has hit. Read this be
 | `guard.g7-version-bump` | A version bump outside a release branch, or without a CHANGELOG entry |
 | `guard.g8-diff-size` | A very large diff (a warning that asks for a split) |
 | `guard.g9-human-approved` | The human approval label is missing |
+
+In split mode these checks run in `.github/workflows/pr-guard.yml` (check name `pr-guard / guard`) and are outside the verify matrix: ticking the checklist, adding a label or editing the PR description reruns only this job, never Ubuntu/Windows x Node 20/22/24. A legacy caller that omits `separate-guard: true` keeps the same checks in the inline `pr-guard` job of `reusable-ci.yml`, with unchanged behaviour.
 
 ## How to read a failure
 

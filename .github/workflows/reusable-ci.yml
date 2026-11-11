@@ -8,13 +8,19 @@ on:
         type: string
         required: false
         default: '[{"os":"ubuntu-latest","node":20},{"os":"ubuntu-latest","node":22},{"os":"ubuntu-latest","node":24},{"os":"windows-latest","node":20},{"os":"windows-latest","node":22},{"os":"windows-latest","node":24}]'
+      separate-guard:
+        description: 调用方已用独立的 pr-guard.yml 跑 guard 时设为 true；缺省 false 时 guard 仍在本 workflow 内运行，保持旧接线行为
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   pr-guard:
-    if: github.event_name == 'pull_request'
+    # separate-guard=true 的调用方在 pr-guard.yml 里单独跑同一条检查；缺省 false 走旧接线，guard 仍在这里运行。
+    if: ${{ !inputs.separate-guard && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,6 +89,9 @@ jobs:
         shell: bash
         run: |
           echo "pr-guard: ${{ needs.pr-guard.result }}"
-          echo "verify:   ${{ needs.verify.result }}"
+          echo "verify: ${{ needs.verify.result }}"
+          case "${{ needs.pr-guard.result }}" in
+            success|skipped) ;;
+            *) echo "::error::pr-guard 未通过：${{ needs.pr-guard.result }}"; exit 1 ;;
+          esac
           test "${{ needs.verify.result }}" = "success"
-          test "${{ needs.pr-guard.result }}" = "success" -o "${{ needs.pr-guard.result }}" = "skipped"

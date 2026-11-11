@@ -9,7 +9,7 @@ The strict CI / PR policy repository shared by the TLEWA DSH plugin repositories
 - One center: check logic, config contract, reusable GitHub Actions workflows and rulesets live only here.
 - One zero-dependency `scripts/ci-gate.mjs` that runs on Node.js >= 20 with no packages to install.
 - Thin templates: a plugin repository copies only a caller workflow and `ci.config.json`, then calls the reusable workflows at `@v1`.
-- One hard gate: pull requests accept exactly one required check, `ci / ci-ok`; releases happen only from tags.
+- Two hard gates: a pull request must pass both `ci / ci-ok` (the aggregate of the six-cell verify matrix) and `pr-guard / guard` (PR metadata); releases happen only from tags.
 - An index of adopted plugins: [docs/plugins.en.md](./docs/plugins.en.md).
 
 ## Five layers
@@ -19,7 +19,7 @@ The strict CI / PR policy repository shared by the TLEWA DSH plugin repositories
 | Templates | `templates/` | Thin declarations copied once by a downstream repository |
 | Reusable | `.github/workflows/reusable-*.yml` | Runs CI, releases and drift; downstream pins `@v1` |
 | Policy | `scripts/`, `schema/`, `rulesets/` | The single source of truth; no repository may weaken it |
-| Enforcement | GitHub rulesets | Makes `ci / ci-ok` a hard merge condition |
+| Enforcement | GitHub rulesets | Makes the checks the wiring actually produces hard merge conditions (`ci / ci-ok`; plus `pr-guard / guard` in split mode) |
 | Patrol | `reusable-drift.yml` | Finds stale pins and regressed wiring every week |
 
 See [docs/architecture.en.md](./docs/architecture.en.md) for the design and trade-offs.
@@ -36,9 +36,9 @@ The gate has three modes; any failure exits with code 1:
 
 ## Adopting it in a plugin repository
 
-1. Run the initializer at the plugin repository root; it writes the three caller workflows and `ci.config.json`, and adds `.ci/` to `.gitignore`.
+1. Run the initializer at the plugin repository root; it writes the four caller workflows (`ci.yml`, `pr-guard.yml`, `ci-rerun.yml`, `release.yml`) and `ci.config.json`, and adds `.ci/` to `.gitignore`. The generated `ci.yml` passes `with: separate-guard: true` so `pr-guard.yml` runs the guard alone; a legacy repository that omits the switch keeps the guard inside `reusable-ci.yml` and can migrate later.
 2. Edit `ci.config.json` for the real build, test and release flow; declare differences only, never copy check logic.
-3. Open the pull request; after the first green CI run, a maintainer applies `rulesets/main.json` and `rulesets/tags-v.json`.
+3. Open the pull request; after the first green CI run, a maintainer applies `rulesets/main.json` and `rulesets/tags-v.json`. `apply-rulesets.mjs` reads each target `ci.yml` for `separate-guard`, so a legacy repository requires only `ci / ci-ok` and is never blocked by the new mandatory check.
 
 ```bash
 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init
