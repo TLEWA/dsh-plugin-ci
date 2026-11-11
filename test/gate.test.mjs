@@ -317,6 +317,38 @@ test('rejects a CHANGELOG that does not start with Unreleased or the version', (
   expectFail(parsed(run(dir, ['--only=version.changelog'])), 'version.changelog');
 });
 
+function manifestRepo(source) {
+  return makeRepo((d) => {
+    const c = baseConfig();
+    c.manifest = { manifestVersion: 1, requireEnginesNode: true, allowedInject: [] };
+    write(d, 'ci.config.json', JSON.stringify(c));
+    write(d, 'lib/index.js', source);
+  });
+}
+
+test('rejects a runtime VERSION that drifted from package.json', () => {
+  const dir = manifestRepo("export const VERSION = '0.9.0';\n");
+  expectFail(parsed(run(dir, ['--only=version.runtime'])), 'version.runtime');
+});
+
+test('accepts a runtime VERSION that equals package.json', () => {
+  const dir = manifestRepo("export const VERSION = '1.0.0';\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
+test('version.runtime ignores counters that are not the product version', () => {
+  const dir = manifestRepo("export const MIN_NODE_VERSION = '18.0.0';\nexport const STATE_VERSION = 1;\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
+test('version.runtime passes when the version is read from package.json', () => {
+  const dir = manifestRepo("const pkg = { version: '1.0.0' };\nexport const VERSION = pkg.version;\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
 test('wiring fails when a caller workflow is missing', () => {
   const dir = makeRepo((d) => rmSync(join(d, '.github/workflows/drift.yml')));
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');

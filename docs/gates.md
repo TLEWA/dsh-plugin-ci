@@ -24,6 +24,7 @@
 | `docs.pairs` | 中英文标题数量/命令/版本不一致 | 只改一份文档等于另一份在说谎 |
 | `docs.links` | 相对链接失效 | 文档死链是长期腐化的起点 |
 | `version.changelog` | 版本小节缺失或为空 | 用户升级前需要知道破坏性变更 |
+| `version.runtime` | 发布代码手写的 `VERSION` 与 `package.json` 不一致 | 状态路由与界面会自报旧版本，用户按错的版本报障 |
 | `repo.hygiene` | 提交 node_modules、.env、tgz、日志 | 泄漏密钥与仓库膨胀 |
 
 ## release（只在 tag 触发时跑）

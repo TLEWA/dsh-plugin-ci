@@ -56,6 +56,7 @@ npm test
 | `docs.pairs` | 中英文文档结构或代码块命令不一致 | 两边同步改；命令保持逐字一致 |
 | `docs.links` | 相对链接指向不存在的文件 | 补文件或改链接，不要用绝对 URL 绕过 |
 | `version.changelog` | CHANGELOG 首节不是当前版本，或缺双语版本节 | 在 `CHANGELOG.md` 与 `CHANGELOG.en.md` 同时写该版本 |
+| `version.runtime` | 发布代码手写版本号，与 `package.json` 不一致 | 删掉常量，运行时读 `package.json`，让发版只改一处 |
 | `repo.hygiene` | 提交了 `node_modules`、`*.tgz`、`.env`、日志等 | 删除并加入 `.gitignore` |
 | `guard.g1` | PR 模板的必选项没勾 | 逐项确认后改成 `- [x]` |
 | `guard.g2` | 分支名不合规 | 重命名分支，不要改检查 |

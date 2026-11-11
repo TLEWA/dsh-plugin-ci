@@ -785,6 +785,47 @@ check('version.changelog', () => {
   ok('CHANGELOG 中英双语都包含 ' + p.version);
 });
 
+/* A hand-written product version inside shipped runtime code drifts from
+ * package.json silently: dsh-opencode-go-router 0.7.0 shipped with
+ * VERSION = '0.6.1' and its status route reported the old number. The gate
+ * cannot know every way a plugin names its version, so it checks the shape
+ * that has already gone wrong: a top-level product-version constant assigned
+ * a semver literal. Reading package.json at runtime is the recommended fix
+ * and leaves nothing to drift; independent counters such as MIN_NODE_VERSION
+ * or STATE_VERSION are deliberately out of scope. */
+const RUNTIME_VERSION_RE = /(?:^|\n)[ \t]*(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=\s*['"\`](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)['"\`]/g;
+const PRODUCT_VERSION_NAMES = new Set(['VERSION', 'PLUGIN_VERSION', 'PACKAGE_VERSION', 'PKG_VERSION']);
+
+check('version.runtime', () => {
+  const c = cfg();
+  if (!c.manifest) { skip('manifest=null'); return; }
+  const p = pkg();
+  const files = Array.isArray(p.files) ? p.files : [];
+  if (files.length === 0) { skip('package.json 没有 files 白名单'); return; }
+  const targets = [];
+  for (const entry of files) {
+    const rel = String(entry).replace(/\/$/, '');
+    if (rel.indexOf('*') >= 0 || !has(rel)) continue;
+    if (isDir(rel)) walk(rel, targets);
+    else targets.push(rel);
+  }
+  const bad = [];
+  for (const file of targets) {
+    if (!/\.(?:js|mjs|cjs|ts|tsx)$/.test(file) || /\.min\.js$/.test(file)) continue;
+    const text = read(file);
+    RUNTIME_VERSION_RE.lastIndex = 0;
+    let m;
+    while ((m = RUNTIME_VERSION_RE.exec(text))) {
+      if (!PRODUCT_VERSION_NAMES.has(m[1])) continue;
+      if (m[2] !== p.version) bad.push(file + ': ' + m[1] + " = '" + m[2] + "', package.json = " + p.version);
+    }
+  }
+  must(bad.length === 0,
+    '运行时代码手写的版本常量与 package.json 不一致：' + bad.slice(0, 5).join(' | '),
+    '改成运行时读取 package.json：import { createRequire } from "node:module"; const pkg = createRequire(import.meta.url)("../package.json"); export const VERSION = pkg.version。发版只改 package.json，状态路由与界面随之更新');
+  ok('运行时版本常量与 package.json 一致');
+});
+
 /* --- hygiene ------------------------------------------------------- */
 
 check('repo.hygiene', () => {

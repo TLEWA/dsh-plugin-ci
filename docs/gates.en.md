@@ -24,6 +24,7 @@ Every check in `ci-gate.mjs` maps to a real failure a user has hit. Read this be
 | `docs.pairs` | Chinese/English heading counts, commands or versions differ | Updating only one side makes the other side lie |
 | `docs.links` | A relative link is broken | Dead links are how documentation rots |
 | `version.changelog` | The version section is missing or empty | Users need to know about breaking changes before upgrading |
+| `version.runtime` | A hand-written `VERSION` in shipped code disagrees with `package.json` | Status routes and UIs report an old version, so bug reports cite the wrong release |
 | `repo.hygiene` | `node_modules`, `.env`, tgz or log files are committed | Leaks secrets and bloats the repository |
 
 ## release (runs only on a tag)

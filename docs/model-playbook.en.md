@@ -56,6 +56,7 @@ npm test
 | `docs.pairs` | Chinese/English doc structure or code-block commands differ | Change both sides together; keep commands identical |
 | `docs.links` | A relative link points at a missing file | Add the file or fix the link; do not bypass it with an absolute URL |
 | `version.changelog` | The first CHANGELOG section is not the current version, or the bilingual version section is missing | Write the version in both `CHANGELOG.md` and `CHANGELOG.en.md` |
+| `version.runtime` | Shipped code hard-codes a version that disagrees with `package.json` | Drop the constant and read `package.json` at runtime so a release edits one place |
 | `repo.hygiene` | `node_modules`, `*.tgz`, `.env`, logs and similar files are committed | Delete them and add them to `.gitignore` |
 | `guard.g1` | A required PR template item is not ticked | Confirm each item and change it to `- [x]` |
 | `guard.g2` | The branch name is not compliant | Rename the branch; do not change the check |
