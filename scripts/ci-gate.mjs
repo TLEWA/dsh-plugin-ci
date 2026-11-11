@@ -785,6 +785,176 @@ check('version.changelog', () => {
   ok('CHANGELOG 中英双语都包含 ' + p.version);
 });
 
+/* A hand-written product version inside shipped runtime code drifts from
+ * package.json silently: dsh-opencode-go-router 0.7.0 shipped with
+ * VERSION = '0.6.1' and its status route reported the old number. The gate
+ * cannot know every way a plugin names its version, so it checks the shape
+ * that has already gone wrong: a top-level product-version constant assigned
+ * a semver literal. Reading package.json at runtime is the recommended fix
+ * and leaves nothing to drift; independent counters such as MIN_NODE_VERSION
+ * or STATE_VERSION are deliberately out of scope. */
+const RUNTIME_VERSION_RE = /^[ \t]*(?:export[ \t]+)?const[ \t]+([A-Z][A-Z0-9_]*)[ \t]*=[ \t]*[\x27"\x60](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)[\x27"\x60](?:[ \t]+as[ \t]+const)?[ \t]*(?=[,;]|$)/gm;
+const PRODUCT_VERSION_NAMES = new Set(['VERSION', 'PLUGIN_VERSION', 'PACKAGE_VERSION', 'PKG_VERSION']);
+
+/* Blank out comments and template literals so a documented example such as
+ * "export const VERSION = '0.9.0'" cannot fail the check, while real string
+ * literals (the version value itself) stay readable. */
+function maskJsNonCode(src, maskStrings) {
+  const TICK = String.fromCharCode(96);
+  const out = src.split('');
+  const blank = (i) => { const ch = out[i]; if (ch !== undefined && ch !== '\n' && ch !== '\r') out[i] = ' '; };
+  let state = 'code';
+  let quote = '';
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    const n = src[i + 1];
+    if (state === 'line') { if (c === '\n') state = 'code'; else blank(i); continue; }
+    if (state === 'block') {
+      if (c === '*' && n === '/') { blank(i); blank(i + 1); i += 1; state = 'code'; continue; }
+      blank(i); continue;
+    }
+    if (state === 'template') {
+      if (c === '\\') { blank(i); blank(i + 1); i += 1; continue; }
+      if (c === TICK) { blank(i); state = 'code'; continue; }
+      blank(i); continue;
+    }
+    if (state === 'string') {
+      if (c === '\\') { if (maskStrings) { blank(i); blank(i + 1); } i += 1; continue; }
+      if (maskStrings) blank(i);
+      if (c === quote) { state = 'code'; continue; }
+      if (c === '\n') { state = 'code'; continue; }
+      continue;
+    }
+    if (c === '/' && n === '/') { blank(i); blank(i + 1); i += 1; state = 'line'; continue; }
+    if (c === '/' && n === '*') { blank(i); blank(i + 1); i += 1; state = 'block'; continue; }
+    if (maskStrings && c === '/') {
+      // Regex literal: its braces must not change the measured scope. Only
+      // treat a slash as a regex when the previous code token cannot end an
+      // expression, so plain division is left alone.
+      let k = i - 1;
+      while (k >= 0 && out[k] === ' ') k -= 1;
+      let prev = k >= 0 ? out[k] : '';
+      if (/[A-Za-z_$]/.test(prev)) {
+        let w = k;
+        while (w >= 0 && /[A-Za-z0-9_$]/.test(out[w])) w -= 1;
+        const word = out.slice(w + 1, k + 1).join('');
+        prev = ['return', 'typeof', 'case', 'in', 'of', 'new', 'delete', 'void', 'throw', 'else', 'do', 'yield', 'await'].indexOf(word) >= 0 ? '' : 'x';
+      }
+      if (prev === '' || '([{,;:=!&|?+-*%^~<>'.indexOf(prev) >= 0) {
+        let j = i + 1;
+        let inClass = false;
+        for (; j < src.length; j += 1) {
+          if (src[j] === '\\') { j += 1; continue; }
+          if (src[j] === '\n') break;
+          if (src[j] === '[') inClass = true;
+          else if (src[j] === ']') inClass = false;
+          else if (src[j] === '/' && !inClass) break;
+        }
+        if (j < src.length && src[j] === '/') {
+          for (let z = i; z <= j; z += 1) blank(z);
+          i = j;
+          continue;
+        }
+      }
+    }
+    if (c === TICK) {
+      // A single-line template without interpolation behaves like a plain
+      // string and is kept, so a template-literal version value still matches.
+      // Multi-line or interpolated templates can carry a documented example.
+      let j = i + 1;
+      let simple = true;
+      for (; j < src.length; j += 1) {
+        if (src[j] === '\\') { j += 1; continue; }
+        if (src[j] === TICK) break;
+        if (src[j] === '\n' || (src[j] === '$' && src[j + 1] === '{')) { simple = false; break; }
+      }
+      if (!maskStrings && simple) { i = j; continue; }
+      blank(i); state = 'template'; continue;
+    }
+    if (c === "'" || c === '"') { state = 'string'; quote = c; if (maskStrings) blank(i); continue; }
+  }
+  return out.join('');
+}
+/* Brace depth at the start of every line of already-masked code. A product
+ * version lives at module scope; a local constant inside a function or class
+ * (a protocol version, say) must not be forced to follow package.json. */
+function lineStartDepths(text) {
+  const depths = [0];
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '{') depth += 1;
+    else if (c === '}') depth = Math.max(0, depth - 1);
+    else if (c === '\n') depths.push(depth);
+  }
+  return depths;
+}
+
+/* When a shipped directory carries .npmignore rules, walk() would still see
+ * files npm never publishes (fixtures, samples). Ask npm for the real pack
+ * list and intersect, so an old fixture cannot block a release. Cached, and
+ * a failed pack silently falls back to the walk. */
+let PACK_PATHS_CACHE;
+function npmPackPaths() {
+  if (PACK_PATHS_CACHE !== undefined) return PACK_PATHS_CACHE;
+  PACK_PATHS_CACHE = null;
+  const r = sh('npm pack --dry-run --json --ignore-scripts');
+  if (r.code !== 0) return PACK_PATHS_CACHE;
+  const start = r.out.indexOf('[');
+  const end = r.out.lastIndexOf(']');
+  if (start < 0 || end <= start) return PACK_PATHS_CACHE;
+  try {
+    const info = JSON.parse(r.out.slice(start, end + 1))[0];
+    if (info && Array.isArray(info.files)) PACK_PATHS_CACHE = info.files.map((f) => f.path);
+  } catch (e) { PACK_PATHS_CACHE = null; }
+  return PACK_PATHS_CACHE;
+}
+
+check('version.runtime', () => {
+  const c = cfg();
+  if (!c.manifest) { skip('manifest=null'); return; }
+  const p = pkg();
+  const files = Array.isArray(p.files) ? p.files : [];
+  if (files.length === 0) { skip('package.json 没有 files 白名单'); return; }
+  const targets = [];
+  for (const entry of files) {
+    const rel = String(entry).replace(/^\.\//, '').replace(/\/$/, '');
+    if (!rel) continue;
+    if (hasGlob(rel)) { for (const f of expandGlob(rel)) targets.push(f); continue; }
+    if (!has(rel)) continue;
+    if (isDir(rel)) walk(rel, targets);
+    else targets.push(rel);
+  }
+  if (has('.npmignore') || targets.some((f) => f.endsWith('.npmignore'))) {
+    const packed = npmPackPaths();
+    if (packed) {
+      const shipped = new Set(packed);
+      for (let i = targets.length - 1; i >= 0; i -= 1) if (!shipped.has(targets[i])) targets.splice(i, 1);
+    }
+  }
+  const bad = [];
+  for (const file of targets) {
+    if (!/\.(?:js|mjs|cjs|ts|tsx)$/.test(file) || /\.min\.js$/.test(file)) continue;
+    const source = read(file);
+    const text = maskJsNonCode(source, false);
+    const depths = lineStartDepths(maskJsNonCode(source, true));
+    RUNTIME_VERSION_RE.lastIndex = 0;
+    let m;
+    while ((m = RUNTIME_VERSION_RE.exec(text))) {
+      if (!PRODUCT_VERSION_NAMES.has(m[1])) continue;
+      const at = m[0][0] === '\n' ? m.index + 1 : m.index;
+      let line = 0;
+      for (let k = 0; k < at; k += 1) if (text[k] === '\n') line += 1;
+      if ((depths[line] || 0) !== 0) continue;
+      if (m[2] !== p.version) bad.push(file + ': ' + m[1] + " = '" + m[2] + "', package.json = " + p.version);
+    }
+  }
+  must(bad.length === 0,
+    '运行时代码手写的版本常量与 package.json 不一致：' + bad.slice(0, 5).join(' | '),
+    '改成运行时读取 package.json：import { createRequire } from "node:module"; const pkg = createRequire(import.meta.url)("../package.json"); export const VERSION = pkg.version。发版只改 package.json，状态路由与界面随之更新');
+  ok('运行时版本常量与 package.json 一致');
+});
+
 /* --- hygiene ------------------------------------------------------- */
 
 check('repo.hygiene', () => {

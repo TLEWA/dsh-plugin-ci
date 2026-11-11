@@ -2,6 +2,10 @@
 
 > 主文档语言：中文 · [English](./CHANGELOG.en.md)
 
+## [Unreleased]
+
+- 新增 `version.runtime` 校验：插件发布代码里手写的产品版本常量（`VERSION`、`PLUGIN_VERSION` 等）必须等于 `package.json` 的 `version`，否则 gate 报红并提示改成运行时读取 `package.json`。这项检查来自 `dsh-opencode-go-router` 0.7.0 的事故：`lib/core.js` 仍写着 0.6.1，状态路由和设置页向用户自报了旧版本。检查会展开 `files` 里的通配符，并在匹配前屏蔽注释与模板字符串，既不会漏检 `lib/*.js` 这类合法白名单，也不会被文档里的示例代码误报。只有模块顶层的常量才算产品版本，函数或类里的同名常量（例如协议版本）不受影响；目录里带 `.npmignore` 时按 `npm pack` 的实际发布列表取交集，未发布的 fixture 不会阻断 CI。
+
 ## [1.0.5] - 2026-11-11
 
 - `ci-rerun.yml` 的并发组改为串行执行（`cancel-in-progress: false`）：两个标签一起加时不再互相取消，避免同一 SHA 留下 cancelled 的 check run、把 PR 的 `mergeStateStatus` 变成 `UNSTABLE`；重复的重跑请求会被幂等跳过。
