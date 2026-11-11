@@ -793,7 +793,7 @@ check('version.changelog', () => {
  * a semver literal. Reading package.json at runtime is the recommended fix
  * and leaves nothing to drift; independent counters such as MIN_NODE_VERSION
  * or STATE_VERSION are deliberately out of scope. */
-const RUNTIME_VERSION_RE = /(?:^|\n)[ \t]*(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=\s*['"\`](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)['"\`]/g;
+const RUNTIME_VERSION_RE = /^[ \t]*(?:export[ \t]+)?const[ \t]+([A-Z][A-Z0-9_]*)[ \t]*=[ \t]*[\x27"\x60](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)[\x27"\x60](?:[ \t]+as[ \t]+const)?[ \t]*(?=[,;]|$)/gm;
 const PRODUCT_VERSION_NAMES = new Set(['VERSION', 'PLUGIN_VERSION', 'PACKAGE_VERSION', 'PKG_VERSION']);
 
 /* Blank out comments and template literals so a documented example such as
@@ -827,6 +827,36 @@ function maskJsNonCode(src, maskStrings) {
     }
     if (c === '/' && n === '/') { blank(i); blank(i + 1); i += 1; state = 'line'; continue; }
     if (c === '/' && n === '*') { blank(i); blank(i + 1); i += 1; state = 'block'; continue; }
+    if (maskStrings && c === '/') {
+      // Regex literal: its braces must not change the measured scope. Only
+      // treat a slash as a regex when the previous code token cannot end an
+      // expression, so plain division is left alone.
+      let k = i - 1;
+      while (k >= 0 && out[k] === ' ') k -= 1;
+      let prev = k >= 0 ? out[k] : '';
+      if (/[A-Za-z_$]/.test(prev)) {
+        let w = k;
+        while (w >= 0 && /[A-Za-z0-9_$]/.test(out[w])) w -= 1;
+        const word = out.slice(w + 1, k + 1).join('');
+        prev = ['return', 'typeof', 'case', 'in', 'of', 'new', 'delete', 'void', 'throw', 'else', 'do', 'yield', 'await'].indexOf(word) >= 0 ? '' : 'x';
+      }
+      if (prev === '' || '([{,;:=!&|?+-*%^~<>'.indexOf(prev) >= 0) {
+        let j = i + 1;
+        let inClass = false;
+        for (; j < src.length; j += 1) {
+          if (src[j] === '\\') { j += 1; continue; }
+          if (src[j] === '\n') break;
+          if (src[j] === '[') inClass = true;
+          else if (src[j] === ']') inClass = false;
+          else if (src[j] === '/' && !inClass) break;
+        }
+        if (j < src.length && src[j] === '/') {
+          for (let z = i; z <= j; z += 1) blank(z);
+          i = j;
+          continue;
+        }
+      }
+    }
     if (c === TICK) {
       // A single-line template without interpolation behaves like a plain
       // string and is kept, so a template-literal version value still matches.

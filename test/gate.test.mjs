@@ -437,6 +437,23 @@ test('version.runtime accepts a matching template-literal version value', () => 
   assert.equal(result(json, 'version.runtime').status, 'ok');
 });
 
+test('version.runtime ignores braces inside regex literals when measuring scope', () => {
+  const dir = manifestRepo("const openingBrace = /\\{/;\nexport const VERSION = '0.9.0';\n");
+  expectFail(parsed(run(dir, ['--only=version.runtime'])), 'version.runtime');
+});
+
+test('version.runtime leaves division alone', () => {
+  const dir = manifestRepo("const ratio = a / b;\nexport const VERSION = '1.0.0';\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
+test('version.runtime does not compare a concatenated prefix', () => {
+  const dir = manifestRepo("export const VERSION = '0.9.0' + '-beta';\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
 test('wiring fails when a caller workflow is missing', () => {
   const dir = makeRepo((d) => rmSync(join(d, '.github/workflows/drift.yml')));
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');
