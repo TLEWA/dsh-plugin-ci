@@ -796,6 +796,41 @@ check('version.changelog', () => {
 const RUNTIME_VERSION_RE = /(?:^|\n)[ \t]*(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=\s*['"\`](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)['"\`]/g;
 const PRODUCT_VERSION_NAMES = new Set(['VERSION', 'PLUGIN_VERSION', 'PACKAGE_VERSION', 'PKG_VERSION']);
 
+/* Blank out comments and template literals so a documented example such as
+ * "export const VERSION = '0.9.0'" cannot fail the check, while real string
+ * literals (the version value itself) stay readable. */
+function maskJsNonCode(src) {
+  const out = src.split('');
+  const blank = (i) => { const ch = out[i]; if (ch !== undefined && ch !== '\n' && ch !== '\r') out[i] = ' '; };
+  let state = 'code';
+  let quote = '';
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    const n = src[i + 1];
+    if (state === 'line') { if (c === '\n') state = 'code'; else blank(i); continue; }
+    if (state === 'block') {
+      if (c === '*' && n === '/') { blank(i); blank(i + 1); i += 1; state = 'code'; continue; }
+      blank(i); continue;
+    }
+    if (state === 'template') {
+      if (c === '\\') { blank(i); blank(i + 1); i += 1; continue; }
+      if (c === '`') { blank(i); state = 'code'; continue; }
+      blank(i); continue;
+    }
+    if (state === 'string') {
+      if (c === '\\') { i += 1; continue; }
+      if (c === quote) { state = 'code'; continue; }
+      if (c === '\n') { state = 'code'; continue; }
+      continue;
+    }
+    if (c === '/' && n === '/') { blank(i); blank(i + 1); i += 1; state = 'line'; continue; }
+    if (c === '/' && n === '*') { blank(i); blank(i + 1); i += 1; state = 'block'; continue; }
+    if (c === '`') { blank(i); state = 'template'; continue; }
+    if (c === "'" || c === '"') { state = 'string'; quote = c; continue; }
+  }
+  return out.join('');
+}
+
 check('version.runtime', () => {
   const c = cfg();
   if (!c.manifest) { skip('manifest=null'); return; }
@@ -804,15 +839,17 @@ check('version.runtime', () => {
   if (files.length === 0) { skip('package.json 没有 files 白名单'); return; }
   const targets = [];
   for (const entry of files) {
-    const rel = String(entry).replace(/\/$/, '');
-    if (rel.indexOf('*') >= 0 || !has(rel)) continue;
+    const rel = String(entry).replace(/^\.\//, '').replace(/\/$/, '');
+    if (!rel) continue;
+    if (hasGlob(rel)) { for (const f of expandGlob(rel)) targets.push(f); continue; }
+    if (!has(rel)) continue;
     if (isDir(rel)) walk(rel, targets);
     else targets.push(rel);
   }
   const bad = [];
   for (const file of targets) {
     if (!/\.(?:js|mjs|cjs|ts|tsx)$/.test(file) || /\.min\.js$/.test(file)) continue;
-    const text = read(file);
+    const text = maskJsNonCode(read(file));
     RUNTIME_VERSION_RE.lastIndex = 0;
     let m;
     while ((m = RUNTIME_VERSION_RE.exec(text))) {

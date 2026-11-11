@@ -349,6 +349,43 @@ test('version.runtime passes when the version is read from package.json', () => 
   assert.equal(result(json, 'version.runtime').status, 'ok');
 });
 
+function manifestRepoWithFiles(files, source) {
+  return makeRepo((d) => {
+    const c = baseConfig();
+    c.manifest = { manifestVersion: 1, requireEnginesNode: true, allowedInject: [] };
+    write(d, 'ci.config.json', JSON.stringify(c));
+    const p = basePackage();
+    p.files = files;
+    write(d, 'package.json', JSON.stringify(p, null, 2));
+    write(d, 'lib/index.js', source);
+  });
+}
+
+const WILDCARD_FILES = ['lib/*.js', 'cordis.patch.yml', 'README.md', 'README.en.md', 'CHANGELOG.md', 'CHANGELOG.en.md', 'LICENSE'];
+
+test('version.runtime expands files wildcards instead of skipping them', () => {
+  const dir = manifestRepoWithFiles(WILDCARD_FILES, "export const VERSION = '0.9.0';\n");
+  expectFail(parsed(run(dir, ['--only=version.runtime'])), 'version.runtime');
+});
+
+test('version.runtime accepts a matching version behind a files wildcard', () => {
+  const dir = manifestRepoWithFiles(WILDCARD_FILES, "export const VERSION = '1.0.0';\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
+test('version.runtime ignores declarations inside block comments', () => {
+  const dir = manifestRepo("/*\nexport const VERSION = '0.9.0';\n*/\nexport const VERSION = '1.0.0';\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
+test('version.runtime ignores declarations inside template literals', () => {
+  const dir = manifestRepo("const doc = `\nexport const VERSION = '0.9.0';\n`;\nexport const VERSION = '1.0.0';\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
 test('wiring fails when a caller workflow is missing', () => {
   const dir = makeRepo((d) => rmSync(join(d, '.github/workflows/drift.yml')));
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');

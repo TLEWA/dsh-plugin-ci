@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-- Added the `version.runtime` check: a product-version constant hard-coded in shipped code (`VERSION`, `PLUGIN_VERSION`, and similar) must equal `package.json`'s `version`; otherwise the gate fails and points at reading `package.json` at runtime. The check comes from the `dsh-opencode-go-router` 0.7.0 incident, where `lib/core.js` still said 0.6.1 and its status route and settings page reported the old version to users.
+- Added the `version.runtime` check: a product-version constant hard-coded in shipped code (`VERSION`, `PLUGIN_VERSION`, and similar) must equal `package.json`'s `version`; otherwise the gate fails and points at reading `package.json` at runtime. The check comes from the `dsh-opencode-go-router` 0.7.0 incident, where `lib/core.js` still said 0.6.1 and its status route and settings page reported the old version to users. The check expands wildcards in `files` and masks comments and template literals before matching, so a legitimate whitelist such as `lib/*.js` is still inspected and a documented example cannot fail CI.
 
 ## [1.0.5] - 2026-11-11
 
