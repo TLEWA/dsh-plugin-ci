@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-11
+
 - Split the PR guard into its own workflow and required check: a new `.github/workflows/pr-guard.yml` calls `reusable-pr-guard.yml` and produces the check `pr-guard / guard`; `reusable-ci.yml` keeps only the verify matrix and the `ci-ok` aggregate. `ci.yml` and `pr-guard.yml` run only on `opened` / `synchronize`; `ci-rerun.yml` now reruns just the existing `pr-guard` run on the same SHA for `labeled` / `unlabeled` / `edited`, never the matrix. Ticking the checklist, adding a label or editing the PR description therefore no longer burns a six-cell matrix run; `rulesets/main.json` requires both `ci / ci-ok` and `pr-guard / guard`, and `wiring.workflows` rejects a missing standalone guard caller, a half-migrated wiring, or a regression that reruns `ci`. The split is an opt-in migration: the templates and the center's own `ci.yml` pass `with: separate-guard: true` so `pr-guard.yml` runs the guard alone; a repository that has not migrated omits the switch, and `reusable-ci.yml` still runs the guard inline exactly as before, with `ci-ok` waiting for both `pr-guard` and `verify` (a skipped inline guard in split mode counts as success). Upgrading `v1` therefore cannot break existing callers. `wiring.workflows` only warns on legacy wiring, but still fails a half-migrated setup (split declared without `pr-guard.yml`, or a guard file without `separate-guard: true`).
 
 ## [1.1.0] - 2026-11-11

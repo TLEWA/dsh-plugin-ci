@@ -4,7 +4,9 @@
 
 ## [Unreleased]
 
-- PR guard 拆成独立工作流与独立 required check：新增 `.github/workflows/pr-guard.yml` 调用 `reusable-pr-guard.yml`，check 名为 `pr-guard / guard`；`reusable-ci.yml` 只保留 verify 矩阵与 `ci-ok` 聚合。`ci.yml` 与 `pr-guard.yml` 只在 `opened` / `synchronize` 触发；`ci-rerun.yml` 改为在 `labeled` / `unlabeled` / `edited` 时只重跑同一 SHA 上已有的 `pr-guard` run，不再重跑矩阵。补勾清单、加标签、改 PR 描述因此不再白跑六格矩阵；`rulesets/main.json` 的 required check 相应变为 `ci / ci-ok` 与 `pr-guard / guard` 两条，`wiring.workflows` 会拒绝缺少独立 guard caller、只改一半或回退到重跑 `ci` 的接线。。这次拆分是渐进式 opt-in：模板与中心仓自己的 `ci.yml` 传 `with: separate-guard: true`，guard 由 `pr-guard.yml` 单独运行；已接入的旧 caller 不传这个开关时，`reusable-ci.yml` 仍像以前一样在内部运行 guard，`ci-ok` 同时等待 `pr-guard` 与 `verify`（`separate-guard` 下 guard 被跳过时按通过处理），所以升级 v1 不会打断现有仓库。`wiring.workflows` 对旧接线只给迁移提示、不判红，但对“只改了一半”的接线（声明了拆分却没有 `pr-guard.yml`，或 `pr-guard.yml` 存在却没传 `separate-guard: true`）仍会失败。
+## [1.2.0] - 2026-11-11
+
+- PR guard 拆成独立工作流与独立 required check：新增 `.github/workflows/pr-guard.yml` 调用 `reusable-pr-guard.yml`，check 名为 `pr-guard / guard`；`reusable-ci.yml` 只保留 verify 矩阵与 `ci-ok` 聚合。`ci.yml` 与 `pr-guard.yml` 只在 `opened` / `synchronize` 触发；`ci-rerun.yml` 改为在 `labeled` / `unlabeled` / `edited` 时只重跑同一 SHA 上已有的 `pr-guard` run，不再重跑矩阵。补勾清单、加标签、改 PR 描述因此不再白跑六格矩阵；`rulesets/main.json` 的 required check 相应变为 `ci / ci-ok` 与 `pr-guard / guard` 两条，`wiring.workflows` 会拒绝缺少独立 guard caller、只改一半或回退到重跑 `ci` 的接线。这次拆分是渐进式 opt-in：模板与中心仓自己的 `ci.yml` 传 `with: separate-guard: true`，guard 由 `pr-guard.yml` 单独运行；已接入的旧 caller 不传这个开关时，`reusable-ci.yml` 仍像以前一样在内部运行 guard，`ci-ok` 同时等待 `pr-guard` 与 `verify`（`separate-guard` 下 guard 被跳过时按通过处理），所以升级 v1 不会打断现有仓库。`wiring.workflows` 对旧接线只给迁移提示、不判红，但对“只改了一半”的接线（声明了拆分却没有 `pr-guard.yml`，或 `pr-guard.yml` 存在却没传 `separate-guard: true`）仍会失败。
 
 ## [1.1.0] - 2026-11-11
 
