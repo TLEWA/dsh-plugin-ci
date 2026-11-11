@@ -16,9 +16,9 @@
 3. 同一提交内改完代码、测试、双语文档或 CHANGELOG。
 4. 本地跑 gate，必须全绿再 push；插件仓用中心仓发布的命令，不复制脚本。
 5. 开 PR，按模板逐项勾选，写清动机与验证方式。
-6. CI 的 `ci / ci-ok` 全绿且标签齐全后由人合并；合并后删除分支。
+6. CI 的 `ci / ci-ok` 与 `pr-guard / guard` 全绿且标签齐全后由人合并；合并后删除分支。
 
-标签由 gate 在运行时通过 GitHub API 读取（`DSH_CI_PR_LABELS` 仅供测试覆盖），所以重跑也能看到刚加的标签；PR 描述同样实时读取，作者补勾清单后重跑即可通过。CI 中读取失败时 gate 直接失败，不会退回旧事件快照放行。加完 `ci-change` / `human-approved` 后，caller 的 `.github/workflows/ci-rerun.yml` 会重跑同一 commit 上已有的 `ci` run，而不是新建一次 run：重跑只是原 run 的新 attempt，check run 原位替换，同一 SHA 上始终只有一套状态，ruleset 不会因为两套 suite 判 BLOCKED。因此 caller 的 `ci.yml` 不监听 `labeled` / `unlabeled`，也不需要为重跑补空提交。`ci-rerun.yml` 用 `pull_request_target` 运行：fork PR 的 `pull_request` token 只读、拿不到 `actions: write`；该工作流不检出 PR 代码，只在可信上下文里调 API 重跑。
+标签由 gate 在运行时通过 GitHub API 读取（`DSH_CI_PR_LABELS` 仅供测试覆盖），所以重跑也能看到刚加的标签；PR 描述同样实时读取，作者补勾清单后重跑即可通过。CI 中读取失败时 gate 直接失败，不会退回旧事件快照放行。`--pr` 检查跑在独立的 `.github/workflows/pr-guard.yml`（check 名 `pr-guard / guard`），与 verify 的六格矩阵解耦：改标签或 PR 描述只重跑这一条轻量 job，矩阵不再跟着白跑。加完 `ci-change` / `human-approved`，或编辑 PR 描述（`edited`）后，caller 的 `.github/workflows/ci-rerun.yml` 会重跑同一 commit 上已有的 `pr-guard` run，而不是新建一次 run：重跑只是原 run 的新 attempt，check run 原位替换，同一 SHA 上始终只有一套状态，ruleset 不会因为两套 suite 判 BLOCKED。因此 caller 的 `ci.yml` 与 `pr-guard.yml` 都不监听 `labeled` / `unlabeled`，也不需要为重跑补空提交；`opened` / `synchronize` 之外的事件不会再启动 verify。`ci-rerun.yml` 用 `pull_request_target` 运行：fork PR 的 `pull_request` token 只读、拿不到 `actions: write`；该工作流不检出 PR 代码，只在可信上下文里调 API 重跑。拆分是渐进式 opt-in：`ci.yml` 传 `with: separate-guard: true` 并由 `pr-guard.yml` 单独跑 guard；未迁移的旧 caller 不传该开关时 guard 仍随 `reusable-ci.yml` 运行，行为不变，gate 只提示迁移。迁移时 `pr-guard.yml`、`separate-guard: true` 与 `ci-rerun.yml` 的 `pr-guard` 目标要一次改全。
 
 ```bash
 git switch main
@@ -62,4 +62,4 @@ git push origin v1.0.0
 - 在本机执行 `npm publish`。
 - 复制或手改 `ci-gate.mjs`，或把中心仓脚本 vendor 进插件仓。
 - 删除或改写 PR 模板中的必勾项。
-- 对 main 强推、绕开 `ci / ci-ok` 合并、或合并自己未通过 CI 的 PR。
+- 对 main 强推、绕开 `ci / ci-ok` 或 `pr-guard / guard` 合并、或合并自己未通过 CI 的 PR。

@@ -70,7 +70,17 @@ function enableTokenFallback(dest) {
 }
 
 mkdirSync(join(process.cwd(), '.github', 'workflows'), { recursive: true });
+// 已存在且未传 separate-guard 的 ci.yml 属于旧接线：保留它，并跳过 pr-guard.yml，
+// 避免重跑初始化命令把仓库变成“只改一半”的拆分接线（gate 会判红）。
+const existingCiPath = join(process.cwd(), '.github', 'workflows', 'ci.yml');
+const legacyCi = !force && existsSync(existingCiPath)
+  && !/separate-guard:\s*true/.test(readFileSync(existingCiPath, 'utf8'));
 copy('workflows/ci.yml', '.github/workflows/ci.yml');
+if (legacyCi) {
+  console.log('skip   .github/workflows/pr-guard.yml (existing ci.yml keeps the legacy inline guard; migrate ci.yml to separate-guard: true first, or rerun with --force to switch to the split wiring)');
+} else {
+  copy('workflows/pr-guard.yml', '.github/workflows/pr-guard.yml');
+}
 copy('workflows/ci-rerun.yml', '.github/workflows/ci-rerun.yml');
 copy('workflows/drift.yml', '.github/workflows/drift.yml');
 copy('workflows/release.yml', '.github/workflows/release.yml');

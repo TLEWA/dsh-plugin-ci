@@ -37,6 +37,9 @@
         "required_status_checks": [
           {
             "context": "ci / ci-ok"
+          },
+          {
+            "context": "pr-guard / guard"
           }
         ]
       }

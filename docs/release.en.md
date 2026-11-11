@@ -12,7 +12,7 @@ A release happens only when a maintainer pushes a tag that triggers the plugin r
 2. GitHub:
    - Keep the caller workflow `permissions` at `contents: write` and `id-token: write`; the reusable workflow declares the same permissions.
    - Apply `rulesets/main.json` to `main` and `rulesets/tags-v.json` to `v*.*.*`; moving tags such as `v1` are not protected.
-   - Set exactly one required status check: `ci / ci-ok`.
+   - Set two required status checks: `ci / ci-ok` and `pr-guard / guard`.
 3. `package.json` `prepublishOnly` must call `dsh-ci-gate --prepublish`; `dsh-ci-init` writes it when missing, and `wiring.prepublish` checks it.
 4. A repository only needs the caller workflow, `ci.config.json` and bilingual docs; do not add `ci-gate.mjs`, `ci-process.json` or `sync-ci.mjs`.
 
@@ -20,7 +20,7 @@ A release happens only when a maintainer pushes a tag that triggers the plugin r
 
 1. Branch from `main` as `release/<version>`.
 2. Bump `package.json` `version`, and write the same version section in both CHANGELOGs.
-3. Open the PR, wait for `ci / ci-ok` to be green and a maintainer to add `human-approved`, then merge back to `main`.
+3. Open the PR, wait for `ci / ci-ok` and `pr-guard / guard` to be green and a maintainer to add `human-approved`, then merge back to `main`.
 4. Tag the latest commit on `main` and push it:
 
 ```bash
@@ -67,4 +67,4 @@ The recovery flow checks out the tag, verifies the `package.json` version, requi
 - Local `npm publish` (including any publish command).
 - Force-moving or overwriting the tag for an already published version; the moving `v1` points only at the latest 1.x.
 - Tagging a `feat/` or `fix/` branch.
-- Skipping `ci / ci-ok` or bypassing the ruleset to push directly to `main`.
+- Skipping `ci / ci-ok` or `pr-guard / guard`, or bypassing the ruleset to push directly to `main`.

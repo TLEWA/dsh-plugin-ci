@@ -9,7 +9,7 @@
 | 检查 | 拦什么 | 为什么 |
 | --- | --- | --- |
 | `config.schema` | 未知键、类型错误、缺字段 | 配置写错时静默失效比报错更危险 |
-| `wiring.workflows` | caller 缺失、pin 不是 `@vN`、把 gate 复制回本仓、`.ci/` 没进 `.gitignore`、缺少 `ci-rerun.yml`、`ci.yml` 仍监听 `labeled`/`unlabeled` | 复用工作流是唯一执行入口，副本会让规则分叉；标签事件若新建 run，同一 SHA 会出现两套 check suite，ruleset 判 BLOCKED |
+| `wiring.workflows` | caller 缺失、pin 不是 `@vN`、把 gate 复制回本仓、`.ci/` 没进 `.gitignore`、拆分模式缺少 `pr-guard.yml` 或没传 `separate-guard: true`（旧接线只提示迁移）、`ci-rerun.yml` 没重跑 `pr-guard`、`ci.yml` 或 `pr-guard.yml` 仍监听 `labeled`/`unlabeled`/`reopened`/`ready_for_review` | 复用工作流是唯一执行入口，副本会让规则分叉；guard 必须独立成 workflow，改标签或 PR 描述才只重跑那一格；标签事件若新建 run，同一 SHA 会出现两套 check suite，ruleset 判 BLOCKED，而 `reopened`/`ready_for_review` 会让六格矩阵白跑 |
 | `wiring.repository` | 要发布但 `package.json` 的 `repository` 与 GitHub 仓库不符 | npm provenance 与源码追溯依赖这个字段 |
 | `wiring.prepublish` | 要发布但 `prepublishOnly` 没有接 `dsh-ci-gate --prepublish` | 没有这个钩子，本机 `npm publish` 不会被拦，发布只能由 tag 触发 |
 | `manifest.name` | 包名/版本格式、仓库名不一致 | npm 与 GitHub 对不上时无法追溯 |
@@ -52,6 +52,8 @@
 | `guard.g7-version-bump` | 版本号改动不在 release 分支、没改 CHANGELOG |
 | `guard.g8-diff-size` | 超大 diff（警告，促使拆分） |
 | `guard.g9-human-approved` | 缺人工放行标签 |
+
+拆分模式下这些检查跑在 `.github/workflows/pr-guard.yml`（check 名 `pr-guard / guard`），不进 verify 矩阵：补勾清单、加标签或改 PR 描述只重跑这一条 job，不会重新跑 Ubuntu/Windows × Node 20/22/24。旧接线未传 `separate-guard: true` 时，同样的检查仍由 `reusable-ci.yml` 内的 `pr-guard` job 执行，行为不变。
 
 ## 失败时怎么读
 

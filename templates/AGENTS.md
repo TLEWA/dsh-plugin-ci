@@ -16,7 +16,7 @@
 1. 从最新 main 开 `feat/` 或 `fix/` 分支。
 2. 改代码、测试、双语文档与 CHANGELOG（同一个 PR）。
 3. 本地跑 gate，全绿再 push；不要复制 gate 脚本，CI 会通过 `.ci` 运行中心仓的版本。
-4. 开 PR 并按模板勾选；`ci / ci-ok` 通过后由维护者合并。
+4. 开 PR 并按模板勾选；`ci / ci-ok` 与 `pr-guard / guard` 通过后由维护者合并。
 
 ```bash
 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate

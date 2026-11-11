@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- PR guard 拆成独立工作流与独立 required check：新增 `.github/workflows/pr-guard.yml` 调用 `reusable-pr-guard.yml`，check 名为 `pr-guard / guard`；`reusable-ci.yml` 只保留 verify 矩阵与 `ci-ok` 聚合。`ci.yml` 与 `pr-guard.yml` 只在 `opened` / `synchronize` 触发；`ci-rerun.yml` 改为在 `labeled` / `unlabeled` / `edited` 时只重跑同一 SHA 上已有的 `pr-guard` run，不再重跑矩阵。补勾清单、加标签、改 PR 描述因此不再白跑六格矩阵；`rulesets/main.json` 的 required check 相应变为 `ci / ci-ok` 与 `pr-guard / guard` 两条，`wiring.workflows` 会拒绝缺少独立 guard caller、只改一半或回退到重跑 `ci` 的接线。。这次拆分是渐进式 opt-in：模板与中心仓自己的 `ci.yml` 传 `with: separate-guard: true`，guard 由 `pr-guard.yml` 单独运行；已接入的旧 caller 不传这个开关时，`reusable-ci.yml` 仍像以前一样在内部运行 guard，`ci-ok` 同时等待 `pr-guard` 与 `verify`（`separate-guard` 下 guard 被跳过时按通过处理），所以升级 v1 不会打断现有仓库。`wiring.workflows` 对旧接线只给迁移提示、不判红，但对“只改了一半”的接线（声明了拆分却没有 `pr-guard.yml`，或 `pr-guard.yml` 存在却没传 `separate-guard: true`）仍会失败。
+
 ## [1.1.0] - 2026-11-11
 
 - 新增 `version.runtime` 校验：插件发布代码里手写的产品版本常量（`VERSION`、`PLUGIN_VERSION` 等）必须等于 `package.json` 的 `version`，否则 gate 报红并提示改成运行时读取 `package.json`。这项检查来自 `dsh-opencode-go-router` 0.7.0 的事故：`lib/core.js` 仍写着 0.6.1，状态路由和设置页向用户自报了旧版本。检查会展开 `files` 里的通配符，并在匹配前屏蔽注释与模板字符串，既不会漏检 `lib/*.js` 这类合法白名单，也不会被文档里的示例代码误报。只有模块顶层的常量才算产品版本，函数或类里的同名常量（例如协议版本）不受影响；目录里带 `.npmignore` 时按 `npm pack` 的实际发布列表取交集，未发布的 fixture 不会阻断 CI。

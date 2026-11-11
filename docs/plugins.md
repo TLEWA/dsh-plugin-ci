@@ -9,9 +9,10 @@
 一个仓库同时满足以下条件才算“已纳入管理”：
 
 - 根目录有 `ci.config.json`；
-- `ci.yml` 调用 `TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1`；
+- `ci.yml` 调用 `TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1`，并传 `with: separate-guard: true`（旧仓库未传时 guard 仍内联运行，可择机迁移）；
+- `pr-guard.yml` 调用 `TLEWA/dsh-plugin-ci/.github/workflows/reusable-pr-guard.yml@v1`；
 - `release.yml` 调用 `TLEWA/dsh-plugin-ci/.github/workflows/reusable-release.yml@v1`；
-- 已应用中心仓的 main ruleset，合并只认 `ci / ci-ok`；
+- 已应用中心仓的 main ruleset，合并只认该仓接线实际产生的 check（旧接线 `ci / ci-ok`，拆分接线再加 `pr-guard / guard`；`apply-rulesets.mjs` 会读取目标仓 `ci.yml` 的 `separate-guard` 自动裁剪）；
 - 发布型仓库已应用 tag ruleset，并使用仓库级 `NPM_TOKEN`（`with: use-token: true`）。
 
 本页不收录未接入中心 CI 的 DSH 插件；本仓自身是 CI 工具，也不在索引内。
@@ -32,7 +33,7 @@
 ## 共同接线
 
 - 表中的仓库都 pin `@v1`；中心仓发布新 major 后，`reusable-drift.yml` 会巡检落后 pin。
-- CI 矩阵为 Ubuntu / Windows × Node 20 / 22 / 24，唯一 required check 是 `ci / ci-ok`。
+- CI 矩阵为 Ubuntu / Windows × Node 20 / 22 / 24，由 `ci / ci-ok` 汇总；PR 元数据由独立的 `pr-guard / guard` 检查，二者都是 required check。
 - 发布只由 tag 触发：`release.yml` 调用 `reusable-release.yml@v1`，完成预检、npm 发布、发布后核对与 GitHub Release。
 - 表中的发布型仓库均配置为发布 npm 包并开启 provenance。release caller 均使用 `with: use-token: true` 和仓库 secret `NPM_TOKEN`，不走 OIDC。
 - 本机发布由 `prepublishOnly` 调用 `dsh-ci-gate --prepublish` 拦截；不要直接运行 `npm publish`。

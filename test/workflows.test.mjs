@@ -10,12 +10,14 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 
 const REUSABLE = [
   '.github/workflows/reusable-ci.yml',
+  '.github/workflows/reusable-pr-guard.yml',
   '.github/workflows/reusable-release.yml',
   '.github/workflows/reusable-release-recover.yml',
   '.github/workflows/reusable-drift.yml',
 ];
 const CALLERS = [
   'templates/workflows/ci.yml',
+  'templates/workflows/pr-guard.yml',
   'templates/workflows/release.yml',
   'templates/workflows/drift.yml',
 ];
@@ -37,13 +39,27 @@ test('the reusable CI workflow checks out the canonical gate and aggregates ci-o
   const text = read('.github/workflows/reusable-ci.yml');
   assert.match(text, /repository: \$\{\{ job\.workflow_repository \|\| github\.repository \}\}/);
   assert.match(text, /ref: \$\{\{ job\.workflow_sha \|\| github\.sha \}\}/);
-  assert.equal((text.match(/job\.workflow_repository \|\| github\.repository/g) || []).length, 2, 'both CI checkouts need a same-repo fallback');
+  assert.equal((text.match(/job\.workflow_repository \|\| github\.repository/g) || []).length, 2, 'both the inline guard and verify checkouts need a same-repo fallback');
   assert.match(text, /path: \.ci/);
   assert.match(text, /node \.ci\/scripts\/ci-gate\.mjs/);
   assert.match(text, /fromJSON\(inputs\.matrix\)/);
   assert.match(text, /matrix:\n\s+include: \$\{\{ fromJSON\(inputs\.matrix\) \}\}/);
   for (const job of ['pr-guard:', 'verify:', 'ci-ok:']) assert.ok(text.indexOf(job) >= 0, 'missing job ' + job);
-  assert.match(text, /needs: \[pr-guard, verify\]/);
+  assert.match(text, /separate-guard:[\s\S]*?default: false/, 'separate-guard must default to false so legacy callers keep the guard');
+  assert.match(text, /if: \$\{\{ !inputs\.separate-guard && github\.event_name == 'pull_request' \}\}/, 'the inline guard must only run for legacy callers');
+  assert.match(text, /needs: \[pr-guard, verify\]/, 'ci-ok must wait for the guard as well');
+  assert.match(text, /success\|skipped/, 'ci-ok must treat a skipped inline guard (split mode) as success');
+});
+
+test('the reusable guard workflow only runs the PR guard', () => {
+  const text = read('.github/workflows/reusable-pr-guard.yml');
+  assert.match(text, /workflow_call:/);
+  assert.match(text, /repository: \$\{\{ job\.workflow_repository \|\| github\.repository \}\}/);
+  assert.match(text, /ref: \$\{\{ job\.workflow_sha \|\| github\.sha \}\}/);
+  assert.match(text, /path: \.ci/);
+  assert.match(text, /node \.ci\/scripts\/ci-gate\.mjs --pr/);
+  assert.match(text, /pull-requests: read/);
+  assert.ok(!/matrix|fromJSON/.test(text), 'the guard must stay out of the verify matrix');
 });
 
 test('the default matrix covers both operating systems and all supported Node lines', () => {
@@ -81,23 +97,28 @@ test('the reusable release workflow uses trusted publishing and the npm version 
 test('external callers pin the canonical reusable workflows at a major tag', () => {
   for (const file of CALLERS) {
     const text = read(file);
-    assert.match(text, new RegExp('uses: ' + REMOTE.replace(/[./]/g, '\\$&') + 'reusable-[a-z]+\\.yml@v\\d+'), file + ' must pin @v<major>');
+    assert.match(text, new RegExp('uses: ' + REMOTE.replace(/[./]/g, '\\$&') + 'reusable-[a-z-]+\\.yml@v\\d+'), file + ' must pin @v<major>');
   }
   const ci = read('templates/workflows/ci.yml');
   assert.match(ci, /^  ci:$/m);
+  for (const file of ['templates/workflows/ci.yml', '.github/workflows/ci.yml']) {
+    assert.match(read(file), /separate-guard: true/, file + ' must opt into the split guard');
+  }
   const release = read('templates/workflows/release.yml');
   assert.match(release, /secrets: inherit/);
   assert.ok(release.includes("tags: ['v*.*.*']"), 'release must trigger on semver tags');
 });
 
 test('label changes rerun the existing ci run instead of opening a new one', () => {
-  for (const file of ['templates/workflows/ci.yml', '.github/workflows/ci.yml']) {
+  for (const file of ['templates/workflows/ci.yml', '.github/workflows/ci.yml', 'templates/workflows/pr-guard.yml', '.github/workflows/pr-guard.yml']) {
     const text = read(file);
     assert.doesNotMatch(text, /types:\s*\[[^\]]*\b(?:labeled|unlabeled)\b/, file + ' must not start a second run on label changes');
+    assert.doesNotMatch(text, /types:\s*\[[^\]]*\b(?:reopened|ready_for_review)\b/, file + ' must not rerun on reopen or draft-ready');
   }
   for (const file of ['templates/workflows/ci-rerun.yml', '.github/workflows/ci-rerun.yml']) {
     const text = read(file);
-    assert.match(text, /types:\s*\[[^\]]*\blabeled\b[^\]]*\bunlabeled\b[^\]]*\]/, file + ' must react to label events');
+    assert.match(text, /types:\s*\[[^\]]*\blabeled\b[^\]]*\bunlabeled\b[^\]]*\bedited\b[^\]]*\]/, file + ' must react to label and body edits');
+    assert.match(text, /select\(\.name == "pr-guard"\)/, file + ' must rerun the guard, not the verify matrix');
     assert.match(text, /pull_request_target:/, file + ' must run in the trusted base-branch context so fork PRs can rerun');
     assert.match(text, /actions:\s*write/, file + ' needs actions: write to rerun a run');
     assert.match(text, /\/rerun/, file + ' must call the run rerun endpoint');
@@ -111,6 +132,9 @@ test('the canonical repository calls its own reusable workflows', () => {
   const ci = read('.github/workflows/ci.yml');
   assert.match(ci, /uses: \.\/\.github\/workflows\/reusable-ci\.yml/);
   assert.ok(ci.indexOf(REMOTE) < 0, 'canonical CI must not call itself over the network');
+  const guard = read('.github/workflows/pr-guard.yml');
+  assert.match(guard, /uses: \.\/\.github\/workflows\/reusable-pr-guard\.yml/);
+  assert.ok(guard.indexOf(REMOTE) < 0, 'canonical guard must not call itself over the network');
   const release = read('.github/workflows/release.yml');
   assert.match(release, /uses: \.\/\.github\/workflows\/reusable-release\.yml/);
   assert.match(release, /uses: \.\/\.github\/workflows\/reusable-release-recover\.yml/);

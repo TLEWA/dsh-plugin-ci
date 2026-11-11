@@ -11,18 +11,18 @@
 | 模板层 | `templates/` | 下游仓库只复制一次薄声明：caller workflow、`ci.config.json`、PR 模板、AGENTS.md |
 | 复用层 | `.github/workflows/reusable-*.yml` | 真正执行 CI、发布与巡检；下游用 `@v1` 调用 |
 | 策略层 | `scripts/`、`schema/`、`rulesets/` | 唯一事实源：检查逻辑、配置契约、保护规则 |
-| 强制层 | 各仓库的 GitHub ruleset | 把 `ci / ci-ok` 变成合并的硬条件，禁止强推与删 tag |
+| 强制层 | 各仓库的 GitHub ruleset | 把 `ci / ci-ok` 与 `pr-guard / guard` 变成合并的硬条件，禁止强推与删 tag |
 | 巡检层 | `reusable-drift.yml`、`check-drift.mjs` | 每周发现落后的 `@vN` 与被人为改坏的接线 |
 
 ## 模板层只写声明
 
-下游仓库的 `.github/workflows/ci.yml` 只有十几行：触发条件、权限、并发，加一个 `uses: TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1`。它不包含任何检查逻辑，因此不会被顺手改坏，也不需要随中心仓升级而重写。
+下游仓库的 `.github/workflows/ci.yml` 只有十几行：触发条件、权限、并发，加一个 `uses: TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v1`；同样薄的 `.github/workflows/pr-guard.yml` 则调用 `reusable-pr-guard.yml@v1`。它们不包含任何检查逻辑，因此不会被顺手改坏，也不需要随中心仓升级而重写。
 
 `init-repo.mjs` 负责写入这些文件，并且只写一次。模板是给人读的起点，不是需要持续同步的副本。
 
 ## 复用层承载执行
 
-`reusable-ci.yml` 做三件事：PR 只跑 `--pr`；矩阵跑 verify（Ubuntu 与 Windows × Node 20/22/24）；最后由 `ci-ok` 聚合所有结果。`reusable-release.yml` 负责 tag 发布；`reusable-drift.yml` 每周比对版本。
+`reusable-ci.yml` 默认仍是 verify 与 guard 二合一：矩阵跑 verify（Ubuntu 与 Windows × Node 20/22/24），`pr-guard` job 在 `pull_request` 上跑 `--pr` 检查，最后由 `ci-ok` 聚合两者。调用方传 `separate-guard: true` 时，guard 被跳过，改由 `reusable-pr-guard.yml` 单独执行；`ci-ok` 仍等待 `pr-guard` 与 `verify`，被跳过的 guard 按通过处理。旧接线不传这个开关也能继续工作，因此拆分不会因为升级中心仓而打断下游。`reusable-release.yml` 负责 tag 发布；`reusable-drift.yml` 每周比对版本。
 
 需要中心仓自己代码的步骤，用 GitHub 官方支持的 `job.workflow_repository` 与 `job.workflow_sha` 把中心仓 checkout 到 `.ci`。这两个上下文指向 reusable workflow 所在的仓库与提交，而不是调用方。
 
@@ -34,13 +34,13 @@
 
 ## 强制层用 ruleset 固定结果
 
-`rulesets/main.json` 要求唯一 required check `ci / ci-ok`，禁止删除分支、强推与合并提交。`rulesets/tags-v.json` 保护 `v*.*.*`，防止已发布版本被覆盖，同时放过可移动的 `v1`。
+`rulesets/main.json` 要求两条 required check：`ci / ci-ok` 与 `pr-guard / guard`，禁止删除分支、强推与合并提交。`rulesets/tags-v.json` 保护 `v*.*.*`，防止已发布版本被覆盖，同时放过可移动的 `v1`。
 
 TLEWA 目前是个人账号，GitHub 的 organization ruleset 不可用，所以 `apply-rulesets.mjs` 逐仓下发同一份 JSON。将来建立 org 后，这份 JSON 可以直接提升为 org ruleset。
 
 ## 巡检层兜底
 
-`reusable-drift.yml` 每周运行一次：`check-drift.mjs` 读出三个 caller 里 pin 的 major，和中心仓最新 release 比较；落后就失败并开（或复用）一个 `[ci] policy drift` issue。
+`reusable-drift.yml` 每周运行一次：`check-drift.mjs` 读出四个 caller 里 pin 的 major，和中心仓最新 release 比较；落后就失败并开（或复用）一个 `[ci] policy drift` issue。
 
 gate 的 `wiring.workflows` 同时防止回退：有人把 gate 脚本复制回仓库、删掉 caller、或改成 `@main`，PR 直接变红。
 
@@ -58,13 +58,13 @@ composite action 的 `uses` 不能写表达式，无法在 action 内引导中�
 
 调用方一律 pin `@v1`。中心仓发布 `v1.0.0`，然后把可移动的 `v1` 指向最新的 1.x；只有出现破坏性变更才发布 `v2`，并且永远不把 `v1` 改指向不兼容版本。
 
-破坏性变更包括：caller 的 job id 从 `ci` 改名、聚合 job 从 `ci-ok` 改名、reusable workflow 的输入改名或删除、`ci.config.json` 删除必填键、gate 的退出码或 CLI 语义改变。
+破坏性变更包括：caller 的 job id 从 `ci` 或 `pr-guard` 改名、聚合 job 从 `ci-ok` 或 `guard` 改名、reusable workflow 的输入改名或删除、`ci.config.json` 删除必填键、gate 的退出码或 CLI 语义改变。
 
 ## check 名与门禁
 
-GitHub 的 check 名是“调用方 job 名 / 被调用 job 名”。模板里 caller 的 job id 是 `ci` 且没有额外 `name`，reusable 里的聚合 job 是 `ci-ok`，所以 required check 的精确字符串是 `ci / ci-ok`。
+GitHub 的 check 名是“调用方 job 名 / 被调用 job 名”。模板里 `ci.yml` 的 caller job id 是 `ci` 且没有额外 `name`，reusable 里的聚合 job 是 `ci-ok`；`pr-guard.yml` 的 caller job id 是 `pr-guard`，被调用的 job 是 `guard`。所以 required check 的精确字符串是 `ci / ci-ok` 与 `pr-guard / guard`。
 
-矩阵里的子 job 不需要单独 required；`ci-ok` 用 `if: always()` 汇总，skipped 也视为满足。重命名任何一个 job 都等于破坏契约，必须走 major 版本。
+矩阵里的子 job 不需要单独 required；`ci-ok` 用 `if: always()` 汇总，拆分模式下被跳过的内联 `pr-guard` 也视为满足。`pr-guard / guard` 只在 PR 事件上产生，push main 时不存在，这与 ruleset 只约束 PR 合并的语义一致。重命名任何一个 job 都等于破坏契约，必须走 major 版本。
 
 ## 运行路径与 .ci
 
@@ -80,9 +80,9 @@ CI 的顺序是：checkout 调用方到工作区；checkout 中心仓到 `.ci`�
 
 ## 本仓自己
 
-中心仓 `selfHosted: true`，用自己的 `./.github/workflows/reusable-ci.yml`，不通过网络调用自己；发布只做 gate 与 GitHub Release，不发布 npm。它也不跑 drift，因为它就是策略源。
+中心仓 `selfHosted: true`，用自己的 `./.github/workflows/reusable-ci.yml` 与 `reusable-pr-guard.yml`，不通过网络调用自己；发布只做 gate 与 GitHub Release，不发布 npm。它也不跑 drift，因为它就是策略源。
 
-外部仓库只有在 fork 或离线演练时才允许 `selfHosted: true`，此时必须同时 vendoring gate 与三个 reusable workflow，并自行承担同步成本。
+外部仓库只有在 fork 或离线演练时才允许 `selfHosted: true`，此时必须同时 vendoring gate 与四个 reusable workflow，并自行承担同步成本。
 
 ## 个人账号与未来 org
 

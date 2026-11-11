@@ -393,15 +393,70 @@ check('wiring.workflows', () => {
   const c = cfg();
   const problems = [];
   const ci = yamlText('.github/workflows/ci.yml');
+  const ciText = ci || '';
+  const guard = yamlText('.github/workflows/pr-guard.yml');
+  const rerun = yamlText('.github/workflows/ci-rerun.yml');
+  const separateGuard = /separate-guard:\s*true/.test(ciText);
+  const rerunsGuard = !!rerun && /select\(\.name == "pr-guard"\)/.test(rerun);
+  const rerunsCi = !!rerun && /select\(\.name == "ci"\)/.test(rerun);
+  // 拆分模式：guard 由独立的 pr-guard.yml 运行；旧接线把 guard 留在 reusable-ci 里，继续可用。
+  const split = !!guard || separateGuard || rerunsGuard;
+
   if (!ci) problems.push('缺少 .github/workflows/ci.yml');
   else if (c.selfHosted) {
     if (!usesLocal(ci, 'reusable-ci.yml')) problems.push('selfHosted 仓的 ci.yml 必须调用 ./.github/workflows/reusable-ci.yml');
-    for (const f of ['reusable-ci.yml', 'reusable-release.yml', 'reusable-drift.yml']) {
+    for (const f of ['reusable-ci.yml', 'reusable-pr-guard.yml', 'reusable-release.yml', 'reusable-drift.yml']) {
       if (!has('.github/workflows/' + f)) problems.push('selfHosted 仓缺少 .github/workflows/' + f);
     }
   } else if (!usesRemote(ci, 'reusable-ci.yml')) {
     problems.push('ci.yml 必须调用 TLEWA/dsh-plugin-ci/.github/workflows/reusable-ci.yml@v<major>（不要复制 gate 脚本）');
   }
+
+  if (!split) {
+    // 旧接线：guard 仍跑在 reusable-ci 内，标签/描述变化会重跑整套 verify 矩阵，但接线本身合法。
+    if (rerunsCi) {
+      warn('当前是旧接线（guard 仍在 reusable-ci 内运行）：建议新增 .github/workflows/pr-guard.yml、给 ci.yml 传 separate-guard: true，并把 ci-rerun.yml 改为重跑 pr-guard；迁移后标签/描述变化不再重跑六格矩阵。步骤见 docs/architecture.md');
+    } else if (rerun) {
+      problems.push('ci-rerun.yml 重跑 pr-guard，但仓库没有 pr-guard.yml，ci.yml 也没传 separate-guard: true：请把拆分接线一次改全（pr-guard.yml + separate-guard: true + ci-rerun），或先退回重跑 ci');
+    } else {
+      problems.push('缺少 .github/workflows/ci-rerun.yml：标签或描述变化应重跑原 run，而不是新建一次 CI');
+    }
+  } else {
+    if (!guard) {
+      problems.push('ci.yml 已声明 separate-guard: true，但缺少 .github/workflows/pr-guard.yml：拆分接线必须同时提供独立 guard caller');
+    } else if (c.selfHosted) {
+      if (!usesLocal(guard, 'reusable-pr-guard.yml')) problems.push('selfHosted 仓的 pr-guard.yml 必须调用 ./.github/workflows/reusable-pr-guard.yml');
+    } else if (!usesRemote(guard, 'reusable-pr-guard.yml')) {
+      problems.push('pr-guard.yml 必须调用 TLEWA/dsh-plugin-ci/.github/workflows/reusable-pr-guard.yml@v<major>');
+    }
+    if (/types:\s*\[[^\]]*\b(?:labeled|unlabeled)\b/.test(guard)) {
+      problems.push('pr-guard.yml 不应监听 pull_request 的 labeled/unlabeled：标签变化应重跑原 guard run，新建 run 会在同一 SHA 留下两套 check suite，ruleset 会判 BLOCKED');
+    }
+    if (/types:\s*\[[^\]]*\b(?:reopened|ready_for_review)\b/.test(guard)) {
+      problems.push('pr-guard.yml 不应监听 reopened/ready_for_review：同一 SHA 上的 check 结果会保留，重复触发只会白跑一次 guard');
+    }
+    if (!separateGuard) {
+      problems.push('ci.yml 调用 reusable-ci 时必须传 with: separate-guard: true：拆分后 guard 由 pr-guard.yml 运行，不传会让 reusable-ci 再跑一遍 guard，标签/描述变化也仍会重跑六格矩阵');
+    }
+    if (/types:\s*\[[^\]]*\blabeled\b/.test(ciText)) {
+      problems.push('ci.yml 不应监听 pull_request 的 labeled/unlabeled：加标签会新建第二次 run，同一 SHA 上留下两套 check suite，ruleset 会判 BLOCKED');
+    }
+    if (/types:\s*\[[^\]]*\b(?:reopened|ready_for_review)\b/.test(ciText)) {
+      problems.push('ci.yml 不应监听 reopened/ready_for_review：同一 SHA 上的 check 结果会保留，重复触发只会重跑整套六格矩阵');
+    }
+    if (!rerun) {
+      problems.push('缺少 .github/workflows/ci-rerun.yml：标签或描述变化应重跑原 pr-guard run，而不是新建一次 CI');
+    } else {
+      if (!/pull_request_target:/.test(rerun) || !/types:\s*\[[^\]]*\blabeled\b/.test(rerun) || !/types:\s*\[[^\]]*\bedited\b/.test(rerun)) {
+        problems.push('ci-rerun.yml 必须在 pull_request_target 的 labeled/unlabeled/edited 事件上运行（fork PR 需要 pull_request_target 才有 actions: write）');
+      }
+      if (!/actions:\s*write/.test(rerun)) problems.push('ci-rerun.yml 需要 permissions.actions: write 才能重跑 run');
+      if (!rerunsGuard) problems.push('ci-rerun.yml 必须重跑名为 pr-guard 的 run；verify 矩阵与标签/描述无关，不要连带重跑');
+      if (rerunsCi) problems.push('ci-rerun.yml 仍在重跑旧的 ci run：guard 已独立成 pr-guard 工作流，重跑 ci 会连带整套 verify 矩阵');
+      if (!/\/rerun/.test(rerun)) problems.push('ci-rerun.yml 必须调用 Actions 的 run rerun 接口（POST /repos/{owner}/{repo}/actions/runs/{id}/rerun）');
+    }
+  }
+
   if (!c.selfHosted) {
     const drift = yamlText('.github/workflows/drift.yml');
     if (!drift) problems.push('缺少 .github/workflows/drift.yml');
@@ -425,18 +480,6 @@ check('wiring.workflows', () => {
   if (!c.selfHosted) {
     const ignore = has('.gitignore') ? read('.gitignore') : '';
     if (!/^\s*\.ci\/?\s*$/m.test(ignore)) problems.push('.gitignore 缺少 .ci/ 条目（reusable workflow 会把中心仓检出到 .ci/）');
-  }
-  const ciText = yamlText('.github/workflows/ci.yml') || '';
-  if (/types:\s*\[[^\]]*\blabeled\b/.test(ciText)) {
-    problems.push('ci.yml 不应监听 pull_request 的 labeled/unlabeled：加标签会新建第二次 run，同一 SHA 上留下两套 check suite，ruleset 会判 BLOCKED');
-  }
-  const rerun = yamlText('.github/workflows/ci-rerun.yml');
-  if (!rerun) {
-    problems.push('缺少 .github/workflows/ci-rerun.yml：标签变化应重跑原 ci run，而不是新建一次 CI');
-  } else {
-    if (!/(?:pull_request|pull_request_target):/.test(rerun) || !/types:\s*\[[^\]]*\blabeled\b/.test(rerun)) problems.push('ci-rerun.yml 必须在 pull_request 或 pull_request_target 的 labeled/unlabeled 事件上运行（fork PR 需要 pull_request_target 才有 actions: write）');
-    if (!/actions:\s*write/.test(rerun)) problems.push('ci-rerun.yml 需要 permissions.actions: write 才能重跑 run');
-    if (!/\/rerun/.test(rerun)) problems.push('ci-rerun.yml 必须调用 Actions 的 run rerun 接口（POST /repos/{owner}/{repo}/actions/runs/{id}/rerun）');
   }
   must(problems.length === 0, '仓库接线不符合中心仓约定：\n' + problems.map((x) => '    - ' + x).join('\n'),
     '在插件仓根目录运行 npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-init 生成 caller workflow，或对照 templates/workflows/');
@@ -1122,7 +1165,7 @@ let DIFF = null;
 function event() {
   if (EV) return EV;
   const path = process.env.GITHUB_EVENT_PATH;
-  must(path && existsSync(path), 'pr-guard 只能在 GitHub Actions 的 pull_request 事件里运行（缺少 GITHUB_EVENT_PATH）', '由 .github/workflows/ci.yml 的 pr-guard job 触发');
+  must(path && existsSync(path), 'pr-guard 只能在 GitHub Actions 的 pull_request 事件里运行（缺少 GITHUB_EVENT_PATH）', '由 .github/workflows/pr-guard.yml 的 pr-guard job（reusable-pr-guard.yml）触发');
   EV = JSON.parse(readFileSync(path, 'utf8'));
   must(EV.pull_request, '事件不是 pull_request', '检查工作流触发器');
   return EV;

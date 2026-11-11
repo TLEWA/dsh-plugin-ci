@@ -76,7 +76,7 @@ npm test
 
 ## 反模式
 
-- 把「本地能跑」当证据：PR 以 CI 的 `ci / ci-ok` 为准。
+- 把「本地能跑」当证据：PR 以 CI 的 `ci / ci-ok` 与 `pr-guard / guard` 为准。
 - 把 `--skip=` 写进 workflow，或把 gate 复制进仓库让检查“看得见”却不再受中心控制。
 - 改文档把失败描述成通过；`docs.links` 与 `docs.pairs` 会拆穿。
 - 一次 PR 混入无关重构；`guard.g8` 会警告 diff 规模。
