@@ -386,6 +386,41 @@ test('version.runtime ignores declarations inside template literals', () => {
   assert.equal(result(json, 'version.runtime').status, 'ok');
 });
 
+test('version.runtime ignores version constants in local scope', () => {
+  const dir = manifestRepo("export const VERSION = '1.0.0';\nexport function protocolVersion() {\n  const VERSION = '2.0.0';\n  return VERSION;\n}\n");
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
+test('version.runtime still fails a top-level version inside a nested block', () => {
+  const dir = manifestRepo("export const VERSION = '0.9.0';\n");
+  expectFail(parsed(run(dir, ['--only=version.runtime'])), 'version.runtime');
+});
+
+test('version.runtime skips files npm never publishes', () => {
+  const dir = makeRepo((d) => {
+    const c = baseConfig();
+    c.manifest = { manifestVersion: 1, requireEnginesNode: true, allowedInject: [] };
+    write(d, 'ci.config.json', JSON.stringify(c));
+    write(d, 'lib/index.js', "export const VERSION = '1.0.0';\n");
+    write(d, 'lib/fixtures/v0.js', "export const VERSION = '0.9.0';\n");
+    write(d, 'lib/.npmignore', 'fixtures/\n');
+  });
+  const json = parsed(run(dir, ['--only=version.runtime']));
+  assert.equal(result(json, 'version.runtime').status, 'ok');
+});
+
+test('version.runtime still catches a fixture when no .npmignore hides it', () => {
+  const dir = makeRepo((d) => {
+    const c = baseConfig();
+    c.manifest = { manifestVersion: 1, requireEnginesNode: true, allowedInject: [] };
+    write(d, 'ci.config.json', JSON.stringify(c));
+    write(d, 'lib/index.js', "export const VERSION = '1.0.0';\n");
+    write(d, 'lib/fixtures/v0.js', "export const VERSION = '0.9.0';\n");
+  });
+  expectFail(parsed(run(dir, ['--only=version.runtime'])), 'version.runtime');
+});
+
 test('wiring fails when a caller workflow is missing', () => {
   const dir = makeRepo((d) => rmSync(join(d, '.github/workflows/drift.yml')));
   expectFail(parsed(run(dir, ['--only=wiring.workflows'])), 'wiring.workflows');

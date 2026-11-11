@@ -831,6 +831,41 @@ function maskJsNonCode(src) {
   return out.join('');
 }
 
+/* Brace depth at the start of every line of already-masked code. A product
+ * version lives at module scope; a local constant inside a function or class
+ * (a protocol version, say) must not be forced to follow package.json. */
+function lineStartDepths(text) {
+  const depths = [0];
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '{') depth += 1;
+    else if (c === '}') depth = Math.max(0, depth - 1);
+    else if (c === '\n') depths.push(depth);
+  }
+  return depths;
+}
+
+/* When a shipped directory carries .npmignore rules, walk() would still see
+ * files npm never publishes (fixtures, samples). Ask npm for the real pack
+ * list and intersect, so an old fixture cannot block a release. Cached, and
+ * a failed pack silently falls back to the walk. */
+let PACK_PATHS_CACHE;
+function npmPackPaths() {
+  if (PACK_PATHS_CACHE !== undefined) return PACK_PATHS_CACHE;
+  PACK_PATHS_CACHE = null;
+  const r = sh('npm pack --dry-run --json --ignore-scripts');
+  if (r.code !== 0) return PACK_PATHS_CACHE;
+  const start = r.out.indexOf('[');
+  const end = r.out.lastIndexOf(']');
+  if (start < 0 || end <= start) return PACK_PATHS_CACHE;
+  try {
+    const info = JSON.parse(r.out.slice(start, end + 1))[0];
+    if (info && Array.isArray(info.files)) PACK_PATHS_CACHE = info.files.map((f) => f.path);
+  } catch (e) { PACK_PATHS_CACHE = null; }
+  return PACK_PATHS_CACHE;
+}
+
 check('version.runtime', () => {
   const c = cfg();
   if (!c.manifest) { skip('manifest=null'); return; }
@@ -846,14 +881,26 @@ check('version.runtime', () => {
     if (isDir(rel)) walk(rel, targets);
     else targets.push(rel);
   }
+  if (has('.npmignore') || targets.some((f) => f.endsWith('.npmignore'))) {
+    const packed = npmPackPaths();
+    if (packed) {
+      const shipped = new Set(packed);
+      for (let i = targets.length - 1; i >= 0; i -= 1) if (!shipped.has(targets[i])) targets.splice(i, 1);
+    }
+  }
   const bad = [];
   for (const file of targets) {
     if (!/\.(?:js|mjs|cjs|ts|tsx)$/.test(file) || /\.min\.js$/.test(file)) continue;
     const text = maskJsNonCode(read(file));
+    const depths = lineStartDepths(text);
     RUNTIME_VERSION_RE.lastIndex = 0;
     let m;
     while ((m = RUNTIME_VERSION_RE.exec(text))) {
       if (!PRODUCT_VERSION_NAMES.has(m[1])) continue;
+      const at = m[0][0] === '\n' ? m.index + 1 : m.index;
+      let line = 0;
+      for (let k = 0; k < at; k += 1) if (text[k] === '\n') line += 1;
+      if ((depths[line] || 0) !== 0) continue;
       if (m[2] !== p.version) bad.push(file + ': ' + m[1] + " = '" + m[2] + "', package.json = " + p.version);
     }
   }
