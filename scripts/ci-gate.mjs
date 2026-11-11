@@ -799,12 +799,13 @@ const PRODUCT_VERSION_NAMES = new Set(['VERSION', 'PLUGIN_VERSION', 'PACKAGE_VER
 /* Blank out comments and template literals so a documented example such as
  * "export const VERSION = '0.9.0'" cannot fail the check, while real string
  * literals (the version value itself) stay readable. */
-function maskJsNonCode(src) {
+function maskJsNonCode(src, maskStrings) {
+  const TICK = String.fromCharCode(96);
   const out = src.split('');
   const blank = (i) => { const ch = out[i]; if (ch !== undefined && ch !== '\n' && ch !== '\r') out[i] = ' '; };
   let state = 'code';
   let quote = '';
-  for (let i = 0; i < src.length; i++) {
+  for (let i = 0; i < src.length; i += 1) {
     const c = src[i];
     const n = src[i + 1];
     if (state === 'line') { if (c === '\n') state = 'code'; else blank(i); continue; }
@@ -814,23 +815,36 @@ function maskJsNonCode(src) {
     }
     if (state === 'template') {
       if (c === '\\') { blank(i); blank(i + 1); i += 1; continue; }
-      if (c === '`') { blank(i); state = 'code'; continue; }
+      if (c === TICK) { blank(i); state = 'code'; continue; }
       blank(i); continue;
     }
     if (state === 'string') {
-      if (c === '\\') { i += 1; continue; }
+      if (c === '\\') { if (maskStrings) { blank(i); blank(i + 1); } i += 1; continue; }
+      if (maskStrings) blank(i);
       if (c === quote) { state = 'code'; continue; }
       if (c === '\n') { state = 'code'; continue; }
       continue;
     }
     if (c === '/' && n === '/') { blank(i); blank(i + 1); i += 1; state = 'line'; continue; }
     if (c === '/' && n === '*') { blank(i); blank(i + 1); i += 1; state = 'block'; continue; }
-    if (c === '`') { blank(i); state = 'template'; continue; }
-    if (c === "'" || c === '"') { state = 'string'; quote = c; continue; }
+    if (c === TICK) {
+      // A single-line template without interpolation behaves like a plain
+      // string and is kept, so a template-literal version value still matches.
+      // Multi-line or interpolated templates can carry a documented example.
+      let j = i + 1;
+      let simple = true;
+      for (; j < src.length; j += 1) {
+        if (src[j] === '\\') { j += 1; continue; }
+        if (src[j] === TICK) break;
+        if (src[j] === '\n' || (src[j] === '$' && src[j + 1] === '{')) { simple = false; break; }
+      }
+      if (!maskStrings && simple) { i = j; continue; }
+      blank(i); state = 'template'; continue;
+    }
+    if (c === "'" || c === '"') { state = 'string'; quote = c; if (maskStrings) blank(i); continue; }
   }
   return out.join('');
 }
-
 /* Brace depth at the start of every line of already-masked code. A product
  * version lives at module scope; a local constant inside a function or class
  * (a protocol version, say) must not be forced to follow package.json. */
@@ -891,8 +905,9 @@ check('version.runtime', () => {
   const bad = [];
   for (const file of targets) {
     if (!/\.(?:js|mjs|cjs|ts|tsx)$/.test(file) || /\.min\.js$/.test(file)) continue;
-    const text = maskJsNonCode(read(file));
-    const depths = lineStartDepths(text);
+    const source = read(file);
+    const text = maskJsNonCode(source, false);
+    const depths = lineStartDepths(maskJsNonCode(source, true));
     RUNTIME_VERSION_RE.lastIndex = 0;
     let m;
     while ((m = RUNTIME_VERSION_RE.exec(text))) {
