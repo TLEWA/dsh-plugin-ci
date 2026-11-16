@@ -29,6 +29,7 @@ DSH plugins that are not wired to the canonical CI are out of scope, even when t
 | [dsh-sidebar-row-menu](https://github.com/TLEWA/dsh-sidebar-row-menu) · [npm](https://www.npmjs.com/package/dsh-sidebar-row-menu) | Adds workspace-row and session-row context menus to the DSH sidebar, including open-with, more-actions and archive cleanup. | `npm run build:client` → `lib` (git-diff); `npm test` |
 | [dsh-utf8-output](https://github.com/TLEWA/dsh-utf8-output) · [npm](https://www.npmjs.com/package/dsh-utf8-output) | Fixes GBK/CP936/CP932 mojibake from DSH subprocess output on Windows by re-decoding the bytes before they reach the agent. | No build; `node test/run.mjs` |
 | [dsh-ptc-noargs](https://github.com/TLEWA/dsh-ptc-noargs) · [npm](https://www.npmjs.com/package/dsh-ptc-noargs) | Fixes rejected argument-less tool calls in PTC `run_code`: injects a one-line prelude before TypeScript function-body programs and normalizes an omitted or undefined first argument to `{}`. | No build; `npm test` |
+| [dsh-ps51-guard](https://github.com/TLEWA/dsh-ps51-guard) · [npm](https://www.npmjs.com/package/dsh-ps51-guard) | A guard for Windows PowerShell 5.1 calls made through `ops_bash`: UTF-16LE transfer protection, syntax-compatible rewrites and result normalization (scaffolding, not yet published). | No build; `node test/smoke.test.mjs` |
 
 ## Shared wiring
 

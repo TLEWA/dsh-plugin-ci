@@ -29,6 +29,7 @@
 | [dsh-sidebar-row-menu](https://github.com/TLEWA/dsh-sidebar-row-menu) · [npm](https://www.npmjs.com/package/dsh-sidebar-row-menu) | 给 DSH 侧栏的工作区行和会话行加右键菜单，含打开方式、更多操作与归档清理。 | `npm run build:client` → `lib`（git-diff）；`npm test` |
 | [dsh-utf8-output](https://github.com/TLEWA/dsh-utf8-output) · [npm](https://www.npmjs.com/package/dsh-utf8-output) | 修复 Windows 下 DSH 子进程 GBK/CP936/CP932 输出乱码，在字节被解码前重新解码。 | 无需构建；`node test/run.mjs` |
 | [dsh-ptc-noargs](https://github.com/TLEWA/dsh-ptc-noargs) · [npm](https://www.npmjs.com/package/dsh-ptc-noargs) | 修复 PTC `run_code` 中无参工具调用被拒绝的问题：在 TypeScript function-body 程序前注入一行 prelude，把省略或 undefined 的首参归一化为 `{}`。 | 无需构建；`npm test` |
+| [dsh-ps51-guard](https://github.com/TLEWA/dsh-ps51-guard) · [npm](https://www.npmjs.com/package/dsh-ps51-guard) | 通过 `ops_bash` 调用的 Windows PowerShell 5.1 护栏：UTF-16LE 传输保护、语法兼容改写与执行结果归一化（脚手架阶段，尚未发布）。 | 无需构建；`node test/smoke.test.mjs` |
 
 ## 共同接线
 
